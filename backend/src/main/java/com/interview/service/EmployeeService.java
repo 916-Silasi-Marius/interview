@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Service layer for employee management operations.
  *
  * <p>Handles business logic including duplicate validation for username and email,
- * entity mapping, and transactional boundaries.</p>
+ * password hashing, entity mapping, and transactional boundaries.</p>
  */
 @Slf4j
 @Service
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * Retrieves a paginated list of all employees.
@@ -70,7 +72,7 @@ public class EmployeeService {
             throw new DuplicateResourceException("Email '" + request.getEmail() + "' is already taken");
         }
 
-        Employee employee = EmployeeMapper.toEntity(request);
+        Employee employee = EmployeeMapper.toEntity(request, passwordEncoder.encode(request.getPassword()));
         Employee saved = employeeRepository.save(employee);
         log.info("Created employee with id: {}", saved.getId());
         return EmployeeMapper.toResponse(saved);
@@ -103,6 +105,9 @@ public class EmployeeService {
         }
 
         EmployeeMapper.updateEntity(employee, request);
+        if (request.getPassword() != null) {
+            employee.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
         log.info("Updated employee with id: {}", id);
         return EmployeeMapper.toResponse(employee);
     }

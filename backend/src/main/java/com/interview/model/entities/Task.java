@@ -1,11 +1,15 @@
 package com.interview.model.entities;
 
+import com.interview.model.enums.TaskPriority;
+import com.interview.model.enums.TaskStatus;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Column;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
@@ -55,13 +59,15 @@ public class Task {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     @Builder.Default
-    private String status = "TODO";
+    private TaskStatus status = TaskStatus.TODO;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String priority = "MEDIUM";
+    private TaskPriority priority = TaskPriority.MEDIUM;
 
     @Column(name = "story_points")
     private Integer storyPoints;

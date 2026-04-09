@@ -1,9 +1,9 @@
 -- Employees
-INSERT INTO employee (username, email, full_name, role) VALUES
-    ('jdoe',    'john.doe@example.com',    'John Doe',    'ADMIN'),
-    ('asmith',  'alice.smith@example.com',  'Alice Smith',  'PROJECT_MANAGER'),
-    ('bwilson', 'bob.wilson@example.com',   'Bob Wilson',   'DEVELOPER'),
-    ('cjones',  'carol.jones@example.com',  'Carol Jones',  'DEVELOPER');
+INSERT INTO employee (username, password, email, full_name, role) VALUES
+    ('jdoe',    '$2a$10$FNc7lD1TVHmxNxyuZnNDu.IiB.lx2gYcRlsz0y8gQ.K08HXtBs4nG', 'john.doe@example.com',    'John Doe',    'ADMIN'),
+    ('asmith',  '$2a$10$FNc7lD1TVHmxNxyuZnNDu.IiB.lx2gYcRlsz0y8gQ.K08HXtBs4nG', 'alice.smith@example.com',  'Alice Smith',  'PROJECT_MANAGER'),
+    ('bwilson', '$2a$10$FNc7lD1TVHmxNxyuZnNDu.IiB.lx2gYcRlsz0y8gQ.K08HXtBs4nG', 'bob.wilson@example.com',   'Bob Wilson',   'DEVELOPER'),
+    ('cjones',  '$2a$10$FNc7lD1TVHmxNxyuZnNDu.IiB.lx2gYcRlsz0y8gQ.K08HXtBs4nG', 'carol.jones@example.com',  'Carol Jones',  'DEVELOPER');
 
 -- Tags
 INSERT INTO tag (name, description) VALUES

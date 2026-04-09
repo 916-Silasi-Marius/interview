@@ -39,15 +39,19 @@ public class EmployeeMapper {
      * Converts an {@link EmployeeRequest} DTO to a new {@link Employee} entity.
      *
      * <p>Applies default values for {@code role} (DEVELOPER) and
-     * {@code isActive} (true) when not provided in the request.</p>
+     * {@code isActive} (true) when not provided in the request.
+     * The {@code encodedPassword} parameter must be a pre-hashed password
+     * (BCrypt) — the mapper does not perform hashing.</p>
      *
-     * @param request the employee creation request
+     * @param request         the employee creation request
+     * @param encodedPassword the BCrypt-hashed password
      * @return a new employee entity (not yet persisted)
      */
-    public static Employee toEntity(EmployeeRequest request) {
+    public static Employee toEntity(EmployeeRequest request, String encodedPassword) {
         return Employee.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
+                .password(encodedPassword)
                 .fullName(request.getFullName())
                 .role(request.getRole() != null ? request.getRole() : EmployeeRole.DEVELOPER)
                 .isActive(request.getIsActive() != null ? request.getIsActive() : true)

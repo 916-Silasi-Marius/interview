@@ -10,12 +10,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -25,7 +24,6 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
 import javax.crypto.SecretKey;
@@ -35,17 +33,24 @@ import javax.crypto.spec.SecretKeySpec;
  * Spring Security configuration for the application.
  *
  * <p>Configures stateless JWT-based authentication using Spring's built-in
- * OAuth2 Resource Server support. Access rules:</p>
+ * OAuth2 Resource Server support. User credentials and roles are loaded from
+ * the {@code employee} table via {@link com.interview.security.EmployeeUserDetailsService}.</p>
+ *
+ * <p>Access rules:</p>
  * <ul>
  *   <li>{@code /api/v1/auth/**} — public (login endpoint)</li>
  *   <li>{@code /h2-console/**} — public (development only)</li>
  *   <li>{@code /api/v1/employee/**} — requires {@code ADMIN} role</li>
+ *   <li>{@code /api/v1/task/**} — requires {@code PROJECT_MANAGER} or {@code ADMIN} role</li>
  *   <li>All other endpoints — require authentication</li>
  * </ul>
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
+
+    private static final String JWT_ALGORITHM = "HmacSHA256";
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -61,6 +66,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
+                        .requestMatchers("/api/v1/task/**").authenticated()
                         .requestMatchers("/api/v1/employee/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
@@ -92,13 +98,13 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        SecretKey key = new SecretKeySpec(jwtSecret.getBytes(), "HmacSHA256");
+        SecretKey key = new SecretKeySpec(jwtSecret.getBytes(), JWT_ALGORITHM);
         return NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
     }
 
     @Bean
     public JwtEncoder jwtEncoder() {
-        SecretKey key = new SecretKeySpec(jwtSecret.getBytes(), "HmacSHA256");
+        SecretKey key = new SecretKeySpec(jwtSecret.getBytes(), JWT_ALGORITHM);
         ImmutableSecret<SecurityContext> secret = new ImmutableSecret<>(key);
         return new NimbusJwtEncoder(secret);
     }
@@ -106,23 +112,6 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
-    }
-
-    @Bean
-    public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-        var admin = User.builder()
-                .username("admin")
-                .password(passwordEncoder.encode("admin"))
-                .roles("ADMIN")
-                .build();
-
-        var user = User.builder()
-                .username("user")
-                .password(passwordEncoder.encode("user"))
-                .roles("USER")
-                .build();
-
-        return new InMemoryUserDetailsManager(admin, user);
     }
 
     @Bean
