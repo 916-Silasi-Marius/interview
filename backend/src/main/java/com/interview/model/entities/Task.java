@@ -4,6 +4,8 @@ import com.interview.model.enums.TaskPriority;
 import com.interview.model.enums.TaskStatus;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.NamedAttributeNode;
+import jakarta.persistence.NamedEntityGraph;
 import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -23,14 +25,14 @@ import lombok.Builder;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
 /**
  * JPA entity representing a task in the project management system.
  *
- * <p>Maps to the {@code task} table. Each task has a unique key, a reporter (mandatory),
+ * <p>Maps to the {@code task} table. Each task has a unique key, an optional reporter,
  * an optional assignee, and can be tagged with multiple {@link Tag}s via a many-to-many
  * relationship through the {@code task_tag} join table.</p>
  *
@@ -39,6 +41,14 @@ import java.util.Set;
  */
 @Entity
 @Table(name = "task")
+@NamedEntityGraph(
+        name = "Task.withRelations",
+        attributeNodes = {
+                @NamedAttributeNode("reporter"),
+                @NamedAttributeNode("assignee"),
+                @NamedAttributeNode("tags")
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -73,7 +83,7 @@ public class Task {
     private Integer storyPoints;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reporter_id", nullable = false)
+    @JoinColumn(name = "reporter_id")
     private Employee reporter;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -82,11 +92,11 @@ public class Task {
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @ManyToMany
     @JoinTable(

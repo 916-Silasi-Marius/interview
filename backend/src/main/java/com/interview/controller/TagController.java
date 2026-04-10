@@ -2,6 +2,7 @@ package com.interview.controller;
 
 import com.interview.model.dto.TagRequest;
 import com.interview.model.dto.TagResponse;
+import com.interview.model.dto.TagUpdateRequest;
 import com.interview.service.TagService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -63,20 +65,35 @@ public class TagController {
      * @return the created tag with HTTP 201 status
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public ResponseEntity<TagResponse> createTag(@Valid @RequestBody TagRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(tagService.createTag(request));
     }
 
     /**
-     * Updates an existing tag.
+     * Fully updates an existing tag.
      *
      * @param id      the ID of the tag to update
-     * @param request the update request (validated, supports partial updates)
+     * @param request the full update request (validated, all fields required)
      * @return the updated tag details
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public ResponseEntity<TagResponse> updateTag(@PathVariable Long id, @Valid @RequestBody TagRequest request) {
         return ResponseEntity.ok(tagService.updateTag(id, request));
+    }
+
+    /**
+     * Partially updates an existing tag.
+     *
+     * @param id      the ID of the tag to patch
+     * @param request the partial update request (validated, only provided fields are applied)
+     * @return the updated tag details
+     */
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+    public ResponseEntity<TagResponse> patchTag(@PathVariable Long id, @Valid @RequestBody TagUpdateRequest request) {
+        return ResponseEntity.ok(tagService.patchTag(id, request));
     }
 
     /**

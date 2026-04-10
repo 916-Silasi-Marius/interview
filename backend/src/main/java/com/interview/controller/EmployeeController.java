@@ -2,6 +2,7 @@ package com.interview.controller;
 
 import com.interview.model.dto.EmployeeRequest;
 import com.interview.model.dto.EmployeeResponse;
+import com.interview.model.dto.EmployeeUpdateRequest;
 import com.interview.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -65,15 +67,27 @@ public class EmployeeController {
     }
 
     /**
-     * Updates an existing employee.
+     * Fully updates an existing employee.
      *
      * @param id      the ID of the employee to update
-     * @param request the update request (validated, supports partial updates)
+     * @param request the full update request (validated, all fields required)
      * @return the updated employee details
      */
     @PutMapping("/{id}")
     public ResponseEntity<EmployeeResponse> updateEmployee(@PathVariable Long id, @Valid @RequestBody EmployeeRequest request) {
         return ResponseEntity.ok(employeeService.updateEmployee(id, request));
+    }
+
+    /**
+     * Partially updates an existing employee.
+     *
+     * @param id      the ID of the employee to patch
+     * @param request the partial update request (validated, only provided fields are applied)
+     * @return the updated employee details
+     */
+    @PatchMapping("/{id}")
+    public ResponseEntity<EmployeeResponse> patchEmployee(@PathVariable Long id, @Valid @RequestBody EmployeeUpdateRequest request) {
+        return ResponseEntity.ok(employeeService.patchEmployee(id, request));
     }
 
     /**

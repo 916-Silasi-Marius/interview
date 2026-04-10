@@ -38,15 +38,15 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody AuthRequest request) {
-        log.debug("Login attempt for user: {}", request.getUsername());
+        log.debug("Login attempt for user: {}", request.username());
 
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(request.username(), request.password())
         );
 
         String token = tokenService.generateToken(authentication);
 
-        log.info("User '{}' authenticated successfully", request.getUsername());
+        log.info("User '{}' authenticated successfully", request.username());
         return ResponseEntity.ok(new AuthResponse(token));
     }
 }

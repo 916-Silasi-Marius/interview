@@ -1,10 +1,9 @@
 package com.interview.controller;
 
-import com.interview.model.dto.TaskAssigneeRequest;
 import com.interview.model.dto.TaskRequest;
 import com.interview.model.dto.TaskResponse;
 import com.interview.model.dto.TaskStatusRequest;
-import com.interview.model.dto.TaskTagsRequest;
+import com.interview.model.dto.TaskUpdateRequest;
 import com.interview.service.TaskService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -16,13 +15,18 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * REST controller for task management operations.
  *
- * <p>All endpoints require authentication. Accessible at {@code /api/v1/task}.</p>
+ * <p>Read operations are available to all authenticated users.
+ * Write operations (create, update, delete) require the {@code ADMIN} or {@code PROJECT_MANAGER} role, unless the
+ * employee updates their own task.
+ * Accessible at {@code /api/v1/task}.</p>
  */
 @RestController
 @RequestMapping("/api/v1/task")
@@ -78,19 +82,21 @@ public class TaskController {
      * Creates a new task.
      *
      * @param request the task creation request (validated)
+     * @param jwt     the JWT of the authenticated user (injected by Spring Security)
      * @return the created task with HTTP 201 status
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
-    public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody TaskRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(taskService.createTask(request));
+    public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody TaskRequest request,
+                                                   @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(taskService.createTask(request, jwt.getSubject()));
     }
 
     /**
-     * Updates an existing task.
+     * Fully updates an existing task.
      *
      * @param id      the ID of the task to update
-     * @param request the update request (validated, supports partial updates)
+     * @param request the full update request (validated, all fields required)
      * @return the updated task details
      */
     @PutMapping("/{id}")
@@ -100,39 +106,47 @@ public class TaskController {
     }
 
     /**
-     * Update an existing task's status.
+     * Partially updates an existing task.
+     *
+     * @param id      the ID of the task to patch
+     * @param request the partial update request (validated, only provided fields are applied)
+     * @return the updated task details
+     */
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+    public ResponseEntity<TaskResponse> patchTask(@PathVariable Long id, @Valid @RequestBody TaskUpdateRequest request) {
+        return ResponseEntity.ok(taskService.patchTask(id, request));
+    }
+
+    /**
+     * Updates the status of a task assigned to the currently authenticated employee.
      *
      * @param id      the ID of the task to update
-     * @param request the update request (validated)
+     * @param request the update request containing the new status (validated)
+     * @param jwt     the JWT of the authenticated user (injected by Spring Security)
      * @return the updated task details
      */
     @PatchMapping("/{id}/status")
-    public ResponseEntity<TaskResponse> updateTaskStatus(@PathVariable Long id, @Valid @RequestBody TaskStatusRequest request) {
-        return ResponseEntity.ok(taskService.updateTaskStatus(id, request));
+    public ResponseEntity<TaskResponse> selfUpdateTaskStatus(@PathVariable Long id,
+                                                             @Valid @RequestBody TaskStatusRequest request,
+                                                             @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(taskService.selfUpdateTaskStatus(id, request, jwt.getSubject()));
     }
 
     /**
-     * Assigns or reassigns a task to an employee.
+     * Self-assigns a task to the currently authenticated employee.
      *
-     * @param id      the ID of the task to assign
-     * @param request the request containing the assignee's employee ID
+     * <p>Uses the JWT subject (username) to resolve the employee.
+     * Any authenticated user can self-assign a task.</p>
+     *
+     * @param id  the ID of the task to self-assign
+     * @param jwt the JWT of the authenticated user (injected by Spring Security)
      * @return the updated task details
      */
-    @PatchMapping("/{id}/assignee")
-    public ResponseEntity<TaskResponse> assignTask(@PathVariable Long id, @Valid @RequestBody TaskAssigneeRequest request) {
-        return ResponseEntity.ok(taskService.assignTask(id, request));
-    }
-
-    /**
-     * Replaces the tags associated with a task.
-     *
-     * @param id      the ID of the task to update
-     * @param request the request containing the set of tag IDs
-     * @return the updated task details
-     */
-    @PutMapping("/{id}/tags")
-    public ResponseEntity<TaskResponse> updateTaskTags(@PathVariable Long id, @Valid @RequestBody TaskTagsRequest request) {
-        return ResponseEntity.ok(taskService.updateTaskTags(id, request));
+    @PatchMapping("/{id}/self-assign")
+    public ResponseEntity<TaskResponse> selfAssignTask(@PathVariable Long id,
+                                                       @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(taskService.selfAssignTask(id, jwt.getSubject()));
     }
 
     /**

@@ -2,6 +2,7 @@ package com.interview.model.mapper;
 
 import com.interview.model.dto.EmployeeRequest;
 import com.interview.model.dto.EmployeeResponse;
+import com.interview.model.dto.EmployeeUpdateRequest;
 import com.interview.model.entities.Employee;
 import com.interview.model.enums.EmployeeRole;
 
@@ -23,16 +24,16 @@ public class EmployeeMapper {
      * @return the corresponding response DTO
      */
     public static EmployeeResponse toResponse(Employee employee) {
-        return EmployeeResponse.builder()
-                .id(employee.getId())
-                .username(employee.getUsername())
-                .email(employee.getEmail())
-                .fullName(employee.getFullName())
-                .role(employee.getRole())
-                .isActive(employee.getIsActive())
-                .createdAt(employee.getCreatedAt())
-                .updatedAt(employee.getUpdatedAt())
-                .build();
+        return new EmployeeResponse(
+                employee.getId(),
+                employee.getUsername(),
+                employee.getEmail(),
+                employee.getFullName(),
+                employee.getRole(),
+                employee.getIsActive(),
+                employee.getCreatedAt(),
+                employee.getUpdatedAt()
+        );
     }
 
     /**
@@ -49,39 +50,57 @@ public class EmployeeMapper {
      */
     public static Employee toEntity(EmployeeRequest request, String encodedPassword) {
         return Employee.builder()
-                .username(request.getUsername())
-                .email(request.getEmail())
+                .username(request.username())
+                .email(request.email())
                 .password(encodedPassword)
-                .fullName(request.getFullName())
-                .role(request.getRole() != null ? request.getRole() : EmployeeRole.DEVELOPER)
-                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .fullName(request.fullName())
+                .role(request.role() != null ? request.role() : EmployeeRole.DEVELOPER)
+                .isActive(request.isActive() != null ? request.isActive() : true)
                 .build();
+    }
+
+    /**
+     * Applies a full update to an existing {@link Employee} entity.
+     *
+     * <p>All fields from the request overwrite existing values.
+     * Password is not set here — it must be handled separately by the service layer.</p>
+     *
+     * @param employee the existing employee entity to update
+     * @param request  the full update request containing all fields
+     */
+    public static void fullUpdateEntity(Employee employee, EmployeeRequest request) {
+        employee.setUsername(request.username());
+        employee.setEmail(request.email());
+        employee.setFullName(request.fullName());
+        employee.setRole(request.role() != null ? request.role() : EmployeeRole.DEVELOPER);
+        employee.setIsActive(request.isActive() != null ? request.isActive() : true);
     }
 
     /**
      * Applies a partial update to an existing {@link Employee} entity.
      *
      * <p>Only non-null fields from the request are applied, allowing
-     * clients to send partial updates without overwriting existing values.</p>
+     * clients to send partial updates without overwriting existing values.
+     * Password is not set here — it must be handled separately by the service layer.</p>
      *
      * @param employee the existing employee entity to update
-     * @param request  the update request containing fields to change
+     * @param request  the partial update request containing fields to change
      */
-    public static void updateEntity(Employee employee, EmployeeRequest request) {
-        if (request.getUsername() != null) {
-            employee.setUsername(request.getUsername());
+    public static void patchEntity(Employee employee, EmployeeUpdateRequest request) {
+        if (request.username() != null) {
+            employee.setUsername(request.username());
         }
-        if (request.getEmail() != null) {
-            employee.setEmail(request.getEmail());
+        if (request.email() != null) {
+            employee.setEmail(request.email());
         }
-        if (request.getFullName() != null) {
-            employee.setFullName(request.getFullName());
+        if (request.fullName() != null) {
+            employee.setFullName(request.fullName());
         }
-        if (request.getRole() != null) {
-            employee.setRole(request.getRole());
+        if (request.role() != null) {
+            employee.setRole(request.role());
         }
-        if (request.getIsActive() != null) {
-            employee.setIsActive(request.getIsActive());
+        if (request.isActive() != null) {
+            employee.setIsActive(request.isActive());
         }
     }
 }

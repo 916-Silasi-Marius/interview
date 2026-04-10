@@ -2,13 +2,8 @@ package com.interview.model.dto;
 
 import com.interview.model.enums.TaskPriority;
 import com.interview.model.enums.TaskStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Set;
 
 /**
@@ -17,26 +12,19 @@ import java.util.Set;
  * <p>Includes flattened references to reporter and assignee (ID + name)
  * and a set of tag names to avoid exposing full entity graphs.</p>
  */
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class TaskResponse {
-
-    private Long id;
-    private String taskKey;
-    private String title;
-    private String description;
-    private TaskStatus status;
-    private TaskPriority priority;
-    private Integer storyPoints;
-    private Long reporterId;
-    private String reporterName;
-    private Long assigneeId;
-    private String assigneeName;
-    private Set<String> tags;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-}
-
+public record TaskResponse(
+        Long id,
+        String taskKey,
+        String title,
+        String description,
+        TaskStatus status,
+        TaskPriority priority,
+        Integer storyPoints,
+        Long reporterId,
+        String reporterName,
+        Long assigneeId,
+        String assigneeName,
+        Set<String> tags,
+        Instant createdAt,
+        Instant updatedAt
+) {}

@@ -34,7 +34,7 @@ public class GlobalExceptionHandler {
      * @return a 400 Bad Request response with field error details
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    private ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
         Map<String, String> fieldErrors = new HashMap<>();
         ex.getBindingResult().getFieldErrors()
                 .forEach(error -> fieldErrors.put(error.getField(), error.getDefaultMessage()));
@@ -52,7 +52,7 @@ public class GlobalExceptionHandler {
      * @return a 400 Bad Request response with parameter error details
      */
     @ExceptionHandler(ConstraintViolationException.class)
-    private ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
         Map<String, String> fieldErrors = new HashMap<>();
         ex.getConstraintViolations()
                 .forEach(violation -> {
@@ -76,7 +76,7 @@ public class GlobalExceptionHandler {
      * @return a 400 Bad Request response with a descriptive error message
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    private ResponseEntity<ErrorResponse> handleInvalidFormat(HttpMessageNotReadableException ex) {
+    public ResponseEntity<ErrorResponse> handleInvalidFormat(HttpMessageNotReadableException ex) {
         log.warn("Invalid request body: {}", ex.getMostSpecificCause().getMessage());
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of(HttpStatus.BAD_REQUEST.value(), "Invalid request body: " + ex.getMostSpecificCause().getMessage()));
@@ -89,7 +89,7 @@ public class GlobalExceptionHandler {
      * @return a 404 Not Found response
      */
     @ExceptionHandler(ResourceNotFoundException.class)
-    private ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
+    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
         log.warn("Resource not found: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of(HttpStatus.NOT_FOUND.value(), ex.getMessage()));
@@ -102,10 +102,36 @@ public class GlobalExceptionHandler {
      * @return a 409 Conflict response
      */
     @ExceptionHandler(DuplicateResourceException.class)
-    private ResponseEntity<ErrorResponse> handleDuplicate(DuplicateResourceException ex) {
+    public ResponseEntity<ErrorResponse> handleDuplicate(DuplicateResourceException ex) {
         log.warn("Duplicate resource: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(HttpStatus.CONFLICT.value(), ex.getMessage()));
+    }
+
+    /**
+     * Handles attempts to self-assign a task that is already assigned to another employee.
+     *
+     * @param ex the task already assigned exception
+     * @return a 409 Conflict response
+     */
+    @ExceptionHandler(TaskAlreadyAssignedException.class)
+    public ResponseEntity<ErrorResponse> handleTaskAlreadyAssigned(TaskAlreadyAssignedException ex) {
+        log.warn("Task already assigned: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(HttpStatus.CONFLICT.value(), ex.getMessage()));
+    }
+
+    /**
+     * Handles illegal state errors (e.g., attempting to update a task not assigned to the user).
+     *
+     * @param ex the illegal state exception
+     * @return a 403 Forbidden response
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
+        log.warn("Illegal state: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ErrorResponse.of(HttpStatus.FORBIDDEN.value(), ex.getMessage()));
     }
 
     /**
@@ -115,7 +141,7 @@ public class GlobalExceptionHandler {
      * @return a 403 Forbidden response
      */
     @ExceptionHandler(AuthorizationDeniedException.class)
-    private ResponseEntity<ErrorResponse> handleAuthorizationDenied(AuthorizationDeniedException ex) {
+    public ResponseEntity<ErrorResponse> handleAuthorizationDenied(AuthorizationDeniedException ex) {
         log.warn("Authorization denied: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ErrorResponse.of(HttpStatus.FORBIDDEN.value(), "Access denied — insufficient permissions"));
@@ -128,7 +154,7 @@ public class GlobalExceptionHandler {
      * @return a 401 Unauthorized response
      */
     @ExceptionHandler(AuthenticationException.class)
-    private ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex) {
+    public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex) {
         log.warn("Authentication failed: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), "Invalid username or password"));
@@ -144,7 +170,7 @@ public class GlobalExceptionHandler {
      * @return a 500 Internal Server Error response
      */
     @ExceptionHandler(Exception.class)
-    private ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
+    public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
         log.error("Unexpected error", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponse.of(HttpStatus.INTERNAL_SERVER_ERROR.value(), "An unexpected error occurred"));

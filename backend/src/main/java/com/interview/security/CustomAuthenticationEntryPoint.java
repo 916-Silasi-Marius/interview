@@ -55,6 +55,9 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
         } else if (authException instanceof InsufficientAuthenticationException) {
             objectMapper.writeValue(response.getOutputStream(),
                     ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), "Authentication required"));
+        } else {
+            objectMapper.writeValue(response.getOutputStream(),
+                    ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), "Authentication failed"));
         }
     }
 }

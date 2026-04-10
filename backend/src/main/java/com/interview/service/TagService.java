@@ -4,6 +4,7 @@ import com.interview.exception.DuplicateResourceException;
 import com.interview.exception.ResourceNotFoundException;
 import com.interview.model.dto.TagRequest;
 import com.interview.model.dto.TagResponse;
+import com.interview.model.dto.TagUpdateRequest;
 import com.interview.model.entities.Tag;
 import com.interview.model.mapper.TagMapper;
 import com.interview.repository.TagRepository;
@@ -63,8 +64,8 @@ public class TagService {
      */
     @Transactional
     public TagResponse createTag(TagRequest request) {
-        if (tagRepository.existsByName(request.getName())) {
-            throw new DuplicateResourceException("Tag name '" + request.getName() + "' is already taken");
+        if (tagRepository.existsByName(request.name())) {
+            throw new DuplicateResourceException("Tag name '" + request.name() + "' is already taken");
         }
 
         Tag tag = TagMapper.toEntity(request);
@@ -74,13 +75,13 @@ public class TagService {
     }
 
     /**
-     * Updates an existing tag with the provided fields.
+     * Fully updates an existing tag with all provided fields.
      *
-     * <p>Only non-null fields in the request are applied (partial update).
-     * Validates that any changed tag name does not conflict with existing records.</p>
+     * <p>All fields are overwritten. Validates that the tag name
+     * does not conflict with existing records.</p>
      *
      * @param id      the ID of the tag to update
-     * @param request the update request containing fields to change
+     * @param request the full update request containing all fields
      * @return the updated tag as a response DTO
      * @throws ResourceNotFoundException  if no tag exists with the given ID
      * @throws DuplicateResourceException if the new tag name is already taken
@@ -90,13 +91,40 @@ public class TagService {
         Tag tag = tagRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Tag not found with id: " + id));
 
-        if (request.getName() != null && !request.getName().equals(tag.getName())
-                && tagRepository.existsByName(request.getName())) {
-            throw new DuplicateResourceException("Tag name '" + request.getName() + "' is already taken");
+        if (!request.name().equals(tag.getName())
+                && tagRepository.existsByName(request.name())) {
+            throw new DuplicateResourceException("Tag name '" + request.name() + "' is already taken");
         }
 
-        TagMapper.updateEntity(tag, request);
-        log.info("Updated tag with id: {}", id);
+        TagMapper.fullUpdateEntity(tag, request);
+        log.info("Fully updated tag with id: {}", id);
+        return TagMapper.toResponse(tag);
+    }
+
+    /**
+     * Partially updates an existing tag with the provided fields.
+     *
+     * <p>Only non-null fields in the request are applied (partial update).
+     * Validates that any changed tag name does not conflict with existing records.</p>
+     *
+     * @param id      the ID of the tag to patch
+     * @param request the partial update request containing fields to change
+     * @return the updated tag as a response DTO
+     * @throws ResourceNotFoundException  if no tag exists with the given ID
+     * @throws DuplicateResourceException if the new tag name is already taken
+     */
+    @Transactional
+    public TagResponse patchTag(Long id, TagUpdateRequest request) {
+        Tag tag = tagRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Tag not found with id: " + id));
+
+        if (request.name() != null && !request.name().equals(tag.getName())
+                && tagRepository.existsByName(request.name())) {
+            throw new DuplicateResourceException("Tag name '" + request.name() + "' is already taken");
+        }
+
+        TagMapper.patchEntity(tag, request);
+        log.info("Partially updated tag with id: {}", id);
         return TagMapper.toResponse(tag);
     }
 

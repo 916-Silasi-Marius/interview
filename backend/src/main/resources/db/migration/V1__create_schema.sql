@@ -22,13 +22,13 @@ CREATE TABLE task
     status       VARCHAR(30)  NOT NULL DEFAULT 'TODO',
     priority     VARCHAR(20)  NOT NULL DEFAULT 'MEDIUM',
     story_points INT,
-    reporter_id  BIGINT       NOT NULL,
+    reporter_id  BIGINT,
     assignee_id  BIGINT,
     created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT fk_task_reporter FOREIGN KEY (reporter_id) REFERENCES employee (id),
-    CONSTRAINT fk_task_assignee FOREIGN KEY (assignee_id) REFERENCES employee (id)
+    CONSTRAINT fk_task_reporter FOREIGN KEY (reporter_id) REFERENCES employee (id) ON DELETE SET NULL,
+    CONSTRAINT fk_task_assignee FOREIGN KEY (assignee_id) REFERENCES employee (id) ON DELETE SET NULL
 );
 
 -- Tags table

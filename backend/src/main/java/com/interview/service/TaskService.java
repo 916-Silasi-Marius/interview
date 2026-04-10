@@ -2,11 +2,11 @@ package com.interview.service;
 
 import com.interview.exception.DuplicateResourceException;
 import com.interview.exception.ResourceNotFoundException;
-import com.interview.model.dto.TaskAssigneeRequest;
+import com.interview.exception.TaskAlreadyAssignedException;
 import com.interview.model.dto.TaskRequest;
 import com.interview.model.dto.TaskResponse;
 import com.interview.model.dto.TaskStatusRequest;
-import com.interview.model.dto.TaskTagsRequest;
+import com.interview.model.dto.TaskUpdateRequest;
 import com.interview.model.entities.Employee;
 import com.interview.model.entities.Tag;
 import com.interview.model.entities.Task;
@@ -51,7 +51,7 @@ public class TaskService {
     @Transactional(readOnly = true)
     public Page<TaskResponse> getAllTasks(Pageable pageable) {
         log.debug("Fetching tasks page: {}", pageable);
-        return taskRepository.findAll(pageable)
+        return taskRepository.findAllWithRelationsBy(pageable)
                 .map(TaskMapper::toResponse);
     }
 
@@ -64,7 +64,7 @@ public class TaskService {
      */
     @Transactional(readOnly = true)
     public TaskResponse getTaskById(Long id) {
-        Task task = taskRepository.findById(id)
+        Task task = taskRepository.findWithRelationsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
         return TaskMapper.toResponse(task);
     }
@@ -93,22 +93,32 @@ public class TaskService {
      * Creates a new task after validating uniqueness of the task key
      * and resolving reporter, assignee, and tag references.
      *
-     * @param request the task creation request
+     * <p>If no reporter ID is provided, the authenticated user (identified by
+     * {@code username}) is automatically set as the reporter.</p>
+     *
+     * @param request  the task creation request
+     * @param username the username of the authenticated user (from JWT subject)
      * @return the created task as a response DTO
      * @throws DuplicateResourceException if the task key is already taken
      * @throws ResourceNotFoundException  if the reporter, assignee, or any tag ID is invalid
      */
     @Transactional
-    public TaskResponse createTask(TaskRequest request) {
-        if (taskRepository.existsByTaskKey(request.getTaskKey())) {
-            throw new DuplicateResourceException("Task key '" + request.getTaskKey() + "' is already taken");
+    public TaskResponse createTask(TaskRequest request, String username) {
+        if (taskRepository.existsByTaskKey(request.taskKey())) {
+            throw new DuplicateResourceException("Task key '" + request.taskKey() + "' is already taken");
         }
 
-        Employee reporter = resolveEmployee(request.getReporterId(), "Reporter");
-        Employee assignee = request.getAssigneeId() != null
-                ? resolveEmployee(request.getAssigneeId(), "Assignee")
+        Employee reporter;
+        if (request.reporterId() == null) {
+            reporter = employeeRepository.findByUsername(username)
+                    .orElseThrow(() -> new ResourceNotFoundException("Reporter not found with username: " + username));
+        } else {
+            reporter = resolveEmployee(request.reporterId(), "Reporter");
+        }
+        Employee assignee = request.assigneeId() != null
+                ? resolveEmployee(request.assigneeId(), "Assignee")
                 : null;
-        Set<Tag> tags = resolveTags(request.getTagIds());
+        Set<Tag> tags = resolveTags(request.tagIds());
 
         Task task = TaskMapper.toEntity(request, reporter, assignee, tags);
         Task saved = taskRepository.save(task);
@@ -117,103 +127,138 @@ public class TaskService {
     }
 
     /**
-     * Updates an existing task with the provided fields.
+     * Fully updates an existing task with all provided fields.
      *
-     * <p>Only non-null fields in the request are applied (partial update).
-     * Validates that any changed task key does not conflict with existing records.
-     * Re-resolves reporter, assignee, and tags if provided.</p>
+     * <p>All fields are overwritten. Validates that the task key does not
+     * conflict with existing records. Resolves reporter, assignee, and tags.</p>
      *
      * @param id      the ID of the task to update
-     * @param request the update request containing fields to change
+     * @param request the full update request containing all fields
      * @return the updated task as a response DTO
      * @throws ResourceNotFoundException  if no task exists with the given ID
      * @throws DuplicateResourceException if the new task key is already taken
      */
     @Transactional
     public TaskResponse updateTask(Long id, TaskRequest request) {
-        Task task = taskRepository.findById(id)
+        Task task = taskRepository.findWithRelationsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
 
-        if (request.getTaskKey() != null && !request.getTaskKey().equals(task.getTaskKey())
-                && taskRepository.existsByTaskKey(request.getTaskKey())) {
-            throw new DuplicateResourceException("Task key '" + request.getTaskKey() + "' is already taken");
+        if (!request.taskKey().equals(task.getTaskKey())
+                && taskRepository.existsByTaskKey(request.taskKey())) {
+            throw new DuplicateResourceException("Task key '" + request.taskKey() + "' is already taken");
         }
 
-        TaskMapper.updateEntity(task, request);
+        TaskMapper.fullUpdateEntity(task, request);
 
-        if (request.getReporterId() != null) {
-            task.setReporter(resolveEmployee(request.getReporterId(), "Reporter"));
-        }
-        if (request.getAssigneeId() != null) {
-            task.setAssignee(resolveEmployee(request.getAssigneeId(), "Assignee"));
-        }
-        if (request.getTagIds() != null) {
-            task.setTags(resolveTags(request.getTagIds()));
-        }
+        task.setReporter(request.reporterId() != null
+                ? resolveEmployee(request.reporterId(), "Reporter")
+                : null);
+        task.setAssignee(request.assigneeId() != null
+                ? resolveEmployee(request.assigneeId(), "Assignee")
+                : null);
+        task.setTags(resolveTags(request.tagIds()));
 
-        log.info("Updated task with id: {}", id);
+        log.info("Fully updated task with id: {}", id);
         return TaskMapper.toResponse(task);
     }
 
     /**
-     * Updates only the status of an existing task.
+     * Partially updates an existing task with the provided fields.
      *
+     * <p>Only non-null fields in the request are applied (partial update).
+     * Validates that any changed task key does not conflict with existing records.
+     * Re-resolves reporter, assignee, and tags if provided.</p>
      *
-     * @param id      the ID of the task to update
-     * @param request the update request containing the new status
+     * @param id      the ID of the task to patch
+     * @param request the partial update request containing fields to change
      * @return the updated task as a response DTO
-     * @throws ResourceNotFoundException if no task exists with the given ID
+     * @throws ResourceNotFoundException  if no task exists with the given ID
+     * @throws DuplicateResourceException if the new task key is already taken
      */
     @Transactional
-    public TaskResponse updateTaskStatus(Long id, TaskStatusRequest request) {
-        Task task = taskRepository.findById(id)
+    public TaskResponse patchTask(Long id, TaskUpdateRequest request) {
+        Task task = taskRepository.findWithRelationsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
 
-        task.setStatus(request.getStatus());
+        if (request.taskKey() != null && !request.taskKey().equals(task.getTaskKey())
+                && taskRepository.existsByTaskKey(request.taskKey())) {
+            throw new DuplicateResourceException("Task key '" + request.taskKey() + "' is already taken");
+        }
 
-        log.info("Updated task status for id: {}", id);
+        TaskMapper.patchEntity(task, request);
+
+        if (request.reporterId() != null) {
+            task.setReporter(resolveEmployee(request.reporterId(), "Reporter"));
+        }
+        if (request.assigneeId() != null) {
+            task.setAssignee(resolveEmployee(request.assigneeId(), "Assignee"));
+        }
+        if (request.tagIds() != null) {
+            task.setTags(resolveTags(request.tagIds()));
+        }
+
+        log.info("Partially updated task with id: {}", id);
         return TaskMapper.toResponse(task);
     }
 
     /**
-     * Assigns or reassigns a task to an employee.
+     * Updates only the status of a task assigned to the given employee.
      *
-     * @param id      the ID of the task to assign
-     * @param request the request containing the assignee's employee ID
+     * <p>Verifies that the authenticated employee is the current assignee
+     * of the task before applying the status change.</p>
+     *
+     * @param id       the ID of the task to update
+     * @param request  the update request containing the new status
+     * @param username the username of the authenticated employee (from JWT)
      * @return the updated task as a response DTO
-     * @throws ResourceNotFoundException if no task or employee exists with the given ID
+     * @throws ResourceNotFoundException if no task or employee exists
+     * @throws IllegalStateException     if the task is not assigned to the authenticated employee
      */
     @Transactional
-    public TaskResponse assignTask(Long id, TaskAssigneeRequest request) {
-        Task task = taskRepository.findById(id)
+    public TaskResponse selfUpdateTaskStatus(Long id, TaskStatusRequest request, String username) {
+        Task task = taskRepository.findWithRelationsById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
+        Employee employee = employeeRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with username: " + username));
+
+        if (task.getAssignee() != null && task.getAssignee().getId().equals(employee.getId())) {
+            task.setStatus(request.status());
+            log.info("Updated task status for id: {}", id);
+            return TaskMapper.toResponse(task);
+        }
+
+        throw new IllegalStateException("Task with id: " + id + " is not assigned to employee with username: " + username);
+    }
+
+    /**
+     * Self-assigns a task to the currently authenticated employee.
+     *
+     * <p>Resolves the employee from the JWT subject (username) and
+     * sets them as the task's assignee. Throws an exception if the task
+     * is already assigned to a different employee.</p>
+     *
+     * @param id       the ID of the task to self-assign
+     * @param username the username of the authenticated employee (from JWT)
+     * @return the updated task as a response DTO
+     * @throws ResourceNotFoundException      if no task or employee exists
+     * @throws TaskAlreadyAssignedException   if the task is already assigned to another employee
+     */
+    @Transactional
+    public TaskResponse selfAssignTask(Long id, String username) {
+        Task task = taskRepository.findWithRelationsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
 
-        Employee assignee = resolveEmployee(request.getAssigneeId(), "Assignee");
+        if (task.getAssignee() != null && !task.getAssignee().getUsername().equals(username)) {
+            throw new TaskAlreadyAssignedException(
+                    "Task is already assigned to employee '" + task.getAssignee().getFullName() + "'");
+        }
+
+        Employee assignee = employeeRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with username: " + username));
+
         task.setAssignee(assignee);
 
-        log.info("Assigned task {} to employee {}", id, request.getAssigneeId());
-        return TaskMapper.toResponse(task);
-    }
-
-    /**
-     * Replaces the tags associated with a task.
-     *
-     * <p>Accepts a complete set of tag IDs. Passing an empty set removes all tags.</p>
-     *
-     * @param id      the ID of the task to update
-     * @param request the request containing the set of tag IDs
-     * @return the updated task as a response DTO
-     * @throws ResourceNotFoundException if no task exists or any tag ID is invalid
-     */
-    @Transactional
-    public TaskResponse updateTaskTags(Long id, TaskTagsRequest request) {
-        Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
-
-        Set<Tag> tags = resolveTags(request.getTagIds());
-        task.setTags(tags);
-
-        log.info("Updated tags for task {}", id);
+        log.info("Task {} self-assigned by employee '{}'", id, username);
         return TaskMapper.toResponse(task);
     }
 

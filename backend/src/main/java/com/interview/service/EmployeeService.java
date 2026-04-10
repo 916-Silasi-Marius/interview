@@ -4,6 +4,7 @@ import com.interview.exception.DuplicateResourceException;
 import com.interview.exception.ResourceNotFoundException;
 import com.interview.model.dto.EmployeeRequest;
 import com.interview.model.dto.EmployeeResponse;
+import com.interview.model.dto.EmployeeUpdateRequest;
 import com.interview.model.entities.Employee;
 import com.interview.model.mapper.EmployeeMapper;
 import com.interview.repository.EmployeeRepository;
@@ -65,50 +66,82 @@ public class EmployeeService {
      */
     @Transactional
     public EmployeeResponse createEmployee(EmployeeRequest request) {
-        if (employeeRepository.existsByUsername(request.getUsername())) {
-            throw new DuplicateResourceException("Username '" + request.getUsername() + "' is already taken");
+        if (employeeRepository.existsByUsername(request.username())) {
+            throw new DuplicateResourceException("Username '" + request.username() + "' is already taken");
         }
-        if (employeeRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("Email '" + request.getEmail() + "' is already taken");
+        if (employeeRepository.existsByEmail(request.email())) {
+            throw new DuplicateResourceException("Email '" + request.email() + "' is already taken");
         }
 
-        Employee employee = EmployeeMapper.toEntity(request, passwordEncoder.encode(request.getPassword()));
+        Employee employee = EmployeeMapper.toEntity(request, passwordEncoder.encode(request.password()));
         Employee saved = employeeRepository.save(employee);
         log.info("Created employee with id: {}", saved.getId());
         return EmployeeMapper.toResponse(saved);
     }
 
     /**
-     * Updates an existing employee with the provided fields.
+     * Fully updates an existing employee with all provided fields.
      *
-     * <p>Only non-null fields in the request are applied (partial update).
-     * Validates that any changed username or email does not conflict with existing records.</p>
+     * <p>All fields are overwritten. Validates that the username and email
+     * do not conflict with existing records.</p>
      *
      * @param id      the ID of the employee to update
-     * @param request the update request containing fields to change
+     * @param request the full update request containing all fields
      * @return the updated employee as a response DTO
      * @throws ResourceNotFoundException  if no employee exists with the given ID
-     * @throws DuplicateResourceException if the new username or email is already taken
+     * @throws DuplicateResourceException if the username or email is already taken
      */
     @Transactional
     public EmployeeResponse updateEmployee(Long id, EmployeeRequest request) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + id));
 
-        if (request.getUsername() != null && !request.getUsername().equals(employee.getUsername())
-                && employeeRepository.existsByUsername(request.getUsername())) {
-            throw new DuplicateResourceException("Username '" + request.getUsername() + "' is already taken");
+        if (!request.username().equals(employee.getUsername())
+                && employeeRepository.existsByUsername(request.username())) {
+            throw new DuplicateResourceException("Username '" + request.username() + "' is already taken");
         }
-        if (request.getEmail() != null && !request.getEmail().equals(employee.getEmail())
-                && employeeRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("Email '" + request.getEmail() + "' is already taken");
+        if (!request.email().equals(employee.getEmail())
+                && employeeRepository.existsByEmail(request.email())) {
+            throw new DuplicateResourceException("Email '" + request.email() + "' is already taken");
         }
 
-        EmployeeMapper.updateEntity(employee, request);
-        if (request.getPassword() != null) {
-            employee.setPassword(passwordEncoder.encode(request.getPassword()));
+        EmployeeMapper.fullUpdateEntity(employee, request);
+        employee.setPassword(passwordEncoder.encode(request.password()));
+        log.info("Fully updated employee with id: {}", id);
+        return EmployeeMapper.toResponse(employee);
+    }
+
+    /**
+     * Partially updates an existing employee with the provided fields.
+     *
+     * <p>Only non-null fields in the request are applied (partial update).
+     * Validates that any changed username or email does not conflict with existing records.</p>
+     *
+     * @param id      the ID of the employee to patch
+     * @param request the partial update request containing fields to change
+     * @return the updated employee as a response DTO
+     * @throws ResourceNotFoundException  if no employee exists with the given ID
+     * @throws DuplicateResourceException if the new username or email is already taken
+     */
+    @Transactional
+    public EmployeeResponse patchEmployee(Long id, EmployeeUpdateRequest request) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + id));
+
+        if (request.username() != null && !request.username().equals(employee.getUsername())
+                && employeeRepository.existsByUsername(request.username())) {
+            throw new DuplicateResourceException("Username '" + request.username() + "' is already taken");
         }
-        log.info("Updated employee with id: {}", id);
+        if (request.email() != null && !request.email().equals(employee.getEmail())
+                && employeeRepository.existsByEmail(request.email())) {
+            throw new DuplicateResourceException("Email '" + request.email() + "' is already taken");
+        }
+
+        EmployeeMapper.patchEntity(employee, request);
+        if (request.password() != null) {
+            employee.setPassword(passwordEncoder.encode(request.password()));
+        }
+        log.info("Partially updated employee with id: {}", id);
         return EmployeeMapper.toResponse(employee);
     }
 
@@ -124,6 +157,6 @@ public class EmployeeService {
             throw new ResourceNotFoundException("Employee not found with id: " + id);
         }
         employeeRepository.deleteById(id);
-        log.info("Deleted employee with id: {}", id);
+        log.info("Deleted employee with id: {} and cleared task references", id);
     }
 }

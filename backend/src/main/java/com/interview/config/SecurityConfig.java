@@ -41,8 +41,9 @@ import javax.crypto.spec.SecretKeySpec;
  *   <li>{@code /api/v1/auth/**} — public (login endpoint)</li>
  *   <li>{@code /h2-console/**} — public (development only)</li>
  *   <li>{@code /api/v1/employee/**} — requires {@code ADMIN} role</li>
- *   <li>{@code /api/v1/task/**} — requires {@code PROJECT_MANAGER} or {@code ADMIN} role for complete writes and deletes</li>
- *   <li>{@code /api/v1/tag/**} — authenticated; deletes require {@code ADMIN} or {@code PROJECT_MANAGER} (method-level)</li>
+ *   <li>{@code /api/v1/task/**} — authenticated; create, full/partial update, and delete require {@code ADMIN} or {@code PROJECT_MANAGER} (method-level);
+ *       self-assign and self-status-update are open to any authenticated user</li>
+ *   <li>{@code /api/v1/tag/**} — authenticated; create, update, patch, and delete require {@code ADMIN} or {@code PROJECT_MANAGER} (method-level)</li>
  *   <li>All other endpoints — require authentication</li>
  * </ul>
  */

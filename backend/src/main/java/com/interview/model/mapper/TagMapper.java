@@ -2,6 +2,7 @@ package com.interview.model.mapper;
 
 import com.interview.model.dto.TagRequest;
 import com.interview.model.dto.TagResponse;
+import com.interview.model.dto.TagUpdateRequest;
 import com.interview.model.entities.Tag;
 
 /**
@@ -22,11 +23,7 @@ public class TagMapper {
      * @return the corresponding response DTO
      */
     public static TagResponse toResponse(Tag tag) {
-        return TagResponse.builder()
-                .id(tag.getId())
-                .name(tag.getName())
-                .description(tag.getDescription())
-                .build();
+        return new TagResponse(tag.getId(), tag.getName(), tag.getDescription());
     }
 
     /**
@@ -37,9 +34,22 @@ public class TagMapper {
      */
     public static Tag toEntity(TagRequest request) {
         return Tag.builder()
-                .name(request.getName())
-                .description(request.getDescription())
+                .name(request.name())
+                .description(request.description())
                 .build();
+    }
+
+    /**
+     * Applies a full update to an existing {@link Tag} entity.
+     *
+     * <p>All fields from the request overwrite existing values.</p>
+     *
+     * @param tag     the existing tag entity to update
+     * @param request the full update request containing all fields
+     */
+    public static void fullUpdateEntity(Tag tag, TagRequest request) {
+        tag.setName(request.name());
+        tag.setDescription(request.description());
     }
 
     /**
@@ -49,15 +59,14 @@ public class TagMapper {
      * clients to send partial updates without overwriting existing values.</p>
      *
      * @param tag     the existing tag entity to update
-     * @param request the update request containing fields to change
+     * @param request the partial update request containing fields to change
      */
-    public static void updateEntity(Tag tag, TagRequest request) {
-        if (request.getName() != null) {
-            tag.setName(request.getName());
+    public static void patchEntity(Tag tag, TagUpdateRequest request) {
+        if (request.name() != null) {
+            tag.setName(request.name());
         }
-        if (request.getDescription() != null) {
-            tag.setDescription(request.getDescription());
+        if (request.description() != null) {
+            tag.setDescription(request.description());
         }
     }
 }
-
