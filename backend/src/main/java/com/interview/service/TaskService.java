@@ -2,9 +2,11 @@ package com.interview.service;
 
 import com.interview.exception.DuplicateResourceException;
 import com.interview.exception.ResourceNotFoundException;
+import com.interview.model.dto.TaskAssigneeRequest;
 import com.interview.model.dto.TaskRequest;
 import com.interview.model.dto.TaskResponse;
 import com.interview.model.dto.TaskStatusRequest;
+import com.interview.model.dto.TaskTagsRequest;
 import com.interview.model.entities.Employee;
 import com.interview.model.entities.Tag;
 import com.interview.model.entities.Task;
@@ -12,6 +14,7 @@ import com.interview.model.mapper.TaskMapper;
 import com.interview.repository.EmployeeRepository;
 import com.interview.repository.TagRepository;
 import com.interview.repository.TaskRepository;
+import com.interview.repository.specification.TaskSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -64,6 +67,26 @@ public class TaskService {
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
         return TaskMapper.toResponse(task);
+    }
+
+    /**
+     * Searches for tasks whose title or description contains any of the words
+     * in the given query string (case-insensitive, word-level matching).
+     *
+     * <p>The query is split into individual words, and a task is returned if
+     * any word appears as a substring in its title or description. This allows
+     * queries like {@code "Login feature implementation"} to match tasks such as
+     * {@code "Implement login page"}.</p>
+     *
+     * @param query    the search term (one or more words)
+     * @param pageable pagination and sorting parameters
+     * @return a page of matching {@link TaskResponse} DTOs
+     */
+    @Transactional(readOnly = true)
+    public Page<TaskResponse> searchTasks(String query, Pageable pageable) {
+        log.debug("Searching tasks with query: '{}', page: {}", query, pageable);
+        return taskRepository.findAll(TaskSpecification.titleOrDescriptionContainsAnyWord(query), pageable)
+                .map(TaskMapper::toResponse);
     }
 
     /**
@@ -149,6 +172,48 @@ public class TaskService {
         task.setStatus(request.getStatus());
 
         log.info("Updated task status for id: {}", id);
+        return TaskMapper.toResponse(task);
+    }
+
+    /**
+     * Assigns or reassigns a task to an employee.
+     *
+     * @param id      the ID of the task to assign
+     * @param request the request containing the assignee's employee ID
+     * @return the updated task as a response DTO
+     * @throws ResourceNotFoundException if no task or employee exists with the given ID
+     */
+    @Transactional
+    public TaskResponse assignTask(Long id, TaskAssigneeRequest request) {
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
+
+        Employee assignee = resolveEmployee(request.getAssigneeId(), "Assignee");
+        task.setAssignee(assignee);
+
+        log.info("Assigned task {} to employee {}", id, request.getAssigneeId());
+        return TaskMapper.toResponse(task);
+    }
+
+    /**
+     * Replaces the tags associated with a task.
+     *
+     * <p>Accepts a complete set of tag IDs. Passing an empty set removes all tags.</p>
+     *
+     * @param id      the ID of the task to update
+     * @param request the request containing the set of tag IDs
+     * @return the updated task as a response DTO
+     * @throws ResourceNotFoundException if no task exists or any tag ID is invalid
+     */
+    @Transactional
+    public TaskResponse updateTaskTags(Long id, TaskTagsRequest request) {
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
+
+        Set<Tag> tags = resolveTags(request.getTagIds());
+        task.setTags(tags);
+
+        log.info("Updated tags for task {}", id);
         return TaskMapper.toResponse(task);
     }
 

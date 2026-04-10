@@ -21,3 +21,8 @@ spring:
 
 jwt:
   secret: 4a6f686e446f654a57545365637265744b6579466f72496e746572766965774170706c69636174696f6e32303236
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [requestId=%X{requestId:-} logLevel=%-5level loggerName=%logger{36}] - %msg%n"
+

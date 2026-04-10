@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -30,6 +31,15 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
 
     private final ObjectMapper objectMapper;
 
+    /**
+     * Writes a JSON 401 Unauthorized response, distinguishing between
+     * invalid/expired tokens and missing authentication.
+     *
+     * @param request       the HTTP request that triggered the authentication error
+     * @param response      the HTTP response to write to
+     * @param authException the exception indicating authentication failure
+     * @throws IOException if an I/O error occurs while writing the response
+     */
     @Override
     public void commence(HttpServletRequest request,
                          HttpServletResponse response,
@@ -42,7 +52,7 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
             log.warn("Invalid token: {}", authException.getMessage());
             objectMapper.writeValue(response.getOutputStream(),
                     ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), "Invalid or expired token"));
-        } else {
+        } else if (authException instanceof InsufficientAuthenticationException) {
             objectMapper.writeValue(response.getOutputStream(),
                     ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), "Authentication required"));
         }

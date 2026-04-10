@@ -26,6 +26,14 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 
     private final ObjectMapper objectMapper;
 
+    /**
+     * Writes a JSON 403 Forbidden response when access is denied at the filter chain level.
+     *
+     * @param request               the HTTP request that was denied
+     * @param response              the HTTP response to write to
+     * @param accessDeniedException the exception indicating access was denied
+     * @throws IOException if an I/O error occurs while writing the response
+     */
     @Override
     public void handle(HttpServletRequest request,
                        HttpServletResponse response,

@@ -23,6 +23,15 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * JPA entity representing an employee in the organization.
+ *
+ * <p>Maps to the {@code employee} table. Each employee has a unique username
+ * and email, a hashed password, a role, and an active status flag.
+ * Employees can be referenced as reporters or assignees on {@link Task} entities.</p>
+ *
+ * @see Task
+ */
 @Entity
 @Table(name = "employee")
 @Getter

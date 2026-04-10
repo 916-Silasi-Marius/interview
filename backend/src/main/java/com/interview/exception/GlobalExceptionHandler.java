@@ -1,6 +1,7 @@
 package com.interview.exception;
 
 import com.interview.model.dto.ErrorResponse;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,12 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    /**
+     * Handles bean validation errors from {@code @Valid @RequestBody} parameters.
+     *
+     * @param ex the validation exception containing field-level errors
+     * @return a 400 Bad Request response with field error details
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     private ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
         Map<String, String> fieldErrors = new HashMap<>();
@@ -37,6 +44,37 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(HttpStatus.BAD_REQUEST.value(), "Validation failed", fieldErrors));
     }
 
+    /**
+     * Handles constraint violations from {@code @Validated} method parameters
+     * (e.g., {@code @RequestParam} with {@code @NotBlank} or {@code @Size}).
+     *
+     * @param ex the constraint violation exception
+     * @return a 400 Bad Request response with parameter error details
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    private ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
+        Map<String, String> fieldErrors = new HashMap<>();
+        ex.getConstraintViolations()
+                .forEach(violation -> {
+                    String field = violation.getPropertyPath().toString();
+                    // Extract the parameter name (last segment of the path)
+                    if (field.contains(".")) {
+                        field = field.substring(field.lastIndexOf('.') + 1);
+                    }
+                    fieldErrors.put(field, violation.getMessage());
+                });
+
+        log.warn("Constraint violation: {}", fieldErrors);
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(HttpStatus.BAD_REQUEST.value(), "Validation failed", fieldErrors));
+    }
+
+    /**
+     * Handles malformed or unreadable request bodies (e.g., invalid JSON or enum values).
+     *
+     * @param ex the message not readable exception
+     * @return a 400 Bad Request response with a descriptive error message
+     */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     private ResponseEntity<ErrorResponse> handleInvalidFormat(HttpMessageNotReadableException ex) {
         log.warn("Invalid request body: {}", ex.getMostSpecificCause().getMessage());
@@ -44,6 +82,12 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(HttpStatus.BAD_REQUEST.value(), "Invalid request body: " + ex.getMostSpecificCause().getMessage()));
     }
 
+    /**
+     * Handles requests for resources that do not exist.
+     *
+     * @param ex the resource not found exception
+     * @return a 404 Not Found response
+     */
     @ExceptionHandler(ResourceNotFoundException.class)
     private ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
         log.warn("Resource not found: {}", ex.getMessage());
@@ -51,6 +95,12 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(HttpStatus.NOT_FOUND.value(), ex.getMessage()));
     }
 
+    /**
+     * Handles attempts to create or update a resource that would violate a uniqueness constraint.
+     *
+     * @param ex the duplicate resource exception
+     * @return a 409 Conflict response
+     */
     @ExceptionHandler(DuplicateResourceException.class)
     private ResponseEntity<ErrorResponse> handleDuplicate(DuplicateResourceException ex) {
         log.warn("Duplicate resource: {}", ex.getMessage());
@@ -58,6 +108,12 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(HttpStatus.CONFLICT.value(), ex.getMessage()));
     }
 
+    /**
+     * Handles method-level authorization denials from {@code @PreAuthorize} checks.
+     *
+     * @param ex the authorization denied exception
+     * @return a 403 Forbidden response
+     */
     @ExceptionHandler(AuthorizationDeniedException.class)
     private ResponseEntity<ErrorResponse> handleAuthorizationDenied(AuthorizationDeniedException ex) {
         log.warn("Authorization denied: {}", ex.getMessage());
@@ -65,6 +121,12 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(HttpStatus.FORBIDDEN.value(), "Access denied — insufficient permissions"));
     }
 
+    /**
+     * Handles authentication failures (e.g., bad credentials during login).
+     *
+     * @param ex the authentication exception
+     * @return a 401 Unauthorized response
+     */
     @ExceptionHandler(AuthenticationException.class)
     private ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex) {
         log.warn("Authentication failed: {}", ex.getMessage());
@@ -72,6 +134,15 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), "Invalid username or password"));
     }
 
+    /**
+     * Catch-all handler for any unexpected exceptions not matched by other handlers.
+     *
+     * <p>Logs the full stack trace but returns a generic error message
+     * to avoid leaking internal details to clients.</p>
+     *
+     * @param ex the unexpected exception
+     * @return a 500 Internal Server Error response
+     */
     @ExceptionHandler(Exception.class)
     private ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
         log.error("Unexpected error", ex);
