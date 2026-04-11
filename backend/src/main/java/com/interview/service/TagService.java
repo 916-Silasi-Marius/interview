@@ -10,8 +10,10 @@ import com.interview.model.mapper.TagMapper;
 import com.interview.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,9 +71,13 @@ public class TagService {
         }
 
         Tag tag = TagMapper.toEntity(request);
-        Tag saved = tagRepository.save(tag);
-        log.info("Created tag with id: {}", saved.getId());
-        return TagMapper.toResponse(saved);
+        try {
+            Tag saved = tagRepository.save(tag);
+            log.info("Created tag with id: {}", saved.getId());
+            return TagMapper.toResponse(saved);
+        } catch (DataIntegrityViolationException ex) {
+            throw new DuplicateResourceException("Tag name '" + request.name() + "' is already taken");
+        }
     }
 
     /**
@@ -88,17 +94,23 @@ public class TagService {
      */
     @Transactional
     public TagResponse updateTag(Long id, TagRequest request) {
-        Tag tag = tagRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Tag not found with id: " + id));
+        try {
+            Tag tag = tagRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Tag not found with id: " + id));
 
-        if (!request.name().equals(tag.getName())
-                && tagRepository.existsByName(request.name())) {
-            throw new DuplicateResourceException("Tag name '" + request.name() + "' is already taken");
+            if (!request.name().equals(tag.getName())
+                    && tagRepository.existsByName(request.name())) {
+                throw new DuplicateResourceException("Tag name '" + request.name() + "' is already taken");
+            }
+
+            TagMapper.fullUpdateEntity(tag, request);
+            tagRepository.flush();
+            log.info("Fully updated tag with id: {}", id);
+            return TagMapper.toResponse(tag);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new DuplicateResourceException(
+                    "Tag with id " + id + " was modified by another request. Please retry.");
         }
-
-        TagMapper.fullUpdateEntity(tag, request);
-        log.info("Fully updated tag with id: {}", id);
-        return TagMapper.toResponse(tag);
     }
 
     /**
@@ -115,17 +127,23 @@ public class TagService {
      */
     @Transactional
     public TagResponse patchTag(Long id, TagUpdateRequest request) {
-        Tag tag = tagRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Tag not found with id: " + id));
+        try {
+            Tag tag = tagRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Tag not found with id: " + id));
 
-        if (request.name() != null && !request.name().equals(tag.getName())
-                && tagRepository.existsByName(request.name())) {
-            throw new DuplicateResourceException("Tag name '" + request.name() + "' is already taken");
+            if (request.name() != null && !request.name().equals(tag.getName())
+                    && tagRepository.existsByName(request.name())) {
+                throw new DuplicateResourceException("Tag name '" + request.name() + "' is already taken");
+            }
+
+            TagMapper.patchEntity(tag, request);
+            tagRepository.flush();
+            log.info("Partially updated tag with id: {}", id);
+            return TagMapper.toResponse(tag);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new DuplicateResourceException(
+                    "Tag with id " + id + " was modified by another request. Please retry.");
         }
-
-        TagMapper.patchEntity(tag, request);
-        log.info("Partially updated tag with id: {}", id);
-        return TagMapper.toResponse(tag);
     }
 
     /**

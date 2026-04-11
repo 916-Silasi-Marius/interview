@@ -17,6 +17,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -98,6 +99,9 @@ public class Task {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Version
+    private Integer version;
+
     @ManyToMany
     @JoinTable(
             name = "task_tag",
@@ -106,4 +110,17 @@ public class Task {
     )
     @Builder.Default
     private Set<Tag> tags = new HashSet<>();
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Task task = (Task) o;
+        return id != null && id.equals(task.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

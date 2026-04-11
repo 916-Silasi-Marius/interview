@@ -17,14 +17,21 @@ import com.interview.repository.TaskRepository;
 import com.interview.repository.specification.TaskSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Service layer for task management operations.
@@ -45,14 +52,18 @@ public class TaskService {
     /**
      * Retrieves a paginated list of all tasks.
      *
+     * <p>Uses a two-query approach: first fetches task IDs with SQL-level pagination,
+     * then loads the full entities with relations for those IDs. This avoids
+     * Hibernate's in-memory pagination when fetching collection associations.</p>
+     *
      * @param pageable pagination and sorting parameters
      * @return a page of {@link TaskResponse} DTOs
      */
     @Transactional(readOnly = true)
     public Page<TaskResponse> getAllTasks(Pageable pageable) {
         log.debug("Fetching tasks page: {}", pageable);
-        return taskRepository.findAllWithRelationsBy(pageable)
-                .map(TaskMapper::toResponse);
+        Page<Long> idPage = taskRepository.findAllIds(pageable);
+        return loadTaskPageByIds(idPage);
     }
 
     /**
@@ -78,6 +89,8 @@ public class TaskService {
      * queries like {@code "Login feature implementation"} to match tasks such as
      * {@code "Implement login page"}.</p>
      *
+     * <p>Uses a two-query approach to keep pagination at the SQL level.</p>
+     *
      * @param query    the search term (one or more words)
      * @param pageable pagination and sorting parameters
      * @return a page of matching {@link TaskResponse} DTOs
@@ -85,8 +98,25 @@ public class TaskService {
     @Transactional(readOnly = true)
     public Page<TaskResponse> searchTasks(String query, Pageable pageable) {
         log.debug("Searching tasks with query: '{}', page: {}", query, pageable);
-        return taskRepository.findAll(TaskSpecification.titleOrDescriptionContainsAnyWord(query), pageable)
-                .map(TaskMapper::toResponse);
+        // Step 1: fetch matching IDs with SQL-level pagination (no collection fetch)
+        Page<Task> taskPage = taskRepository.findAll(
+                TaskSpecification.titleOrDescriptionContainsAnyWord(query), pageable);
+        List<Long> ids = taskPage.getContent().stream().map(Task::getId).toList();
+
+        if (ids.isEmpty()) {
+            return taskPage.map(TaskMapper::toResponse);
+        }
+
+        // Step 2: load full entities with relations for just those IDs
+        Map<Long, Task> taskMap = taskRepository.findAllWithRelationsByIdIn(ids).stream()
+                .collect(Collectors.toMap(Task::getId, Function.identity()));
+
+        List<TaskResponse> ordered = ids.stream()
+                .map(taskMap::get)
+                .map(TaskMapper::toResponse)
+                .toList();
+
+        return new PageImpl<>(ordered, pageable, taskPage.getTotalElements());
     }
 
     /**
@@ -121,9 +151,13 @@ public class TaskService {
         Set<Tag> tags = resolveTags(request.tagIds());
 
         Task task = TaskMapper.toEntity(request, reporter, assignee, tags);
-        Task saved = taskRepository.save(task);
-        log.info("Created task with id: {} and key: {}", saved.getId(), saved.getTaskKey());
-        return TaskMapper.toResponse(saved);
+        try {
+            Task saved = taskRepository.save(task);
+            log.info("Created task with id: {} and key: {}", saved.getId(), saved.getTaskKey());
+            return TaskMapper.toResponse(saved);
+        } catch (DataIntegrityViolationException ex) {
+            throw new DuplicateResourceException("Task key '" + request.taskKey() + "' is already taken");
+        }
     }
 
     /**
@@ -140,26 +174,32 @@ public class TaskService {
      */
     @Transactional
     public TaskResponse updateTask(Long id, TaskRequest request) {
-        Task task = taskRepository.findWithRelationsById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
+        try {
+            Task task = taskRepository.findWithRelationsById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
 
-        if (!request.taskKey().equals(task.getTaskKey())
-                && taskRepository.existsByTaskKey(request.taskKey())) {
-            throw new DuplicateResourceException("Task key '" + request.taskKey() + "' is already taken");
+            if (!request.taskKey().equals(task.getTaskKey())
+                    && taskRepository.existsByTaskKey(request.taskKey())) {
+                throw new DuplicateResourceException("Task key '" + request.taskKey() + "' is already taken");
+            }
+
+            TaskMapper.fullUpdateEntity(task, request);
+
+            task.setReporter(request.reporterId() != null
+                    ? resolveEmployee(request.reporterId(), "Reporter")
+                    : null);
+            task.setAssignee(request.assigneeId() != null
+                    ? resolveEmployee(request.assigneeId(), "Assignee")
+                    : null);
+            task.setTags(resolveTags(request.tagIds()));
+
+            taskRepository.flush();
+            log.info("Fully updated task with id: {}", id);
+            return TaskMapper.toResponse(task);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new DuplicateResourceException(
+                    "Task with id " + id + " was modified by another request. Please retry.");
         }
-
-        TaskMapper.fullUpdateEntity(task, request);
-
-        task.setReporter(request.reporterId() != null
-                ? resolveEmployee(request.reporterId(), "Reporter")
-                : null);
-        task.setAssignee(request.assigneeId() != null
-                ? resolveEmployee(request.assigneeId(), "Assignee")
-                : null);
-        task.setTags(resolveTags(request.tagIds()));
-
-        log.info("Fully updated task with id: {}", id);
-        return TaskMapper.toResponse(task);
     }
 
     /**
@@ -177,28 +217,34 @@ public class TaskService {
      */
     @Transactional
     public TaskResponse patchTask(Long id, TaskUpdateRequest request) {
-        Task task = taskRepository.findWithRelationsById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
+        try {
+            Task task = taskRepository.findWithRelationsById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
 
-        if (request.taskKey() != null && !request.taskKey().equals(task.getTaskKey())
-                && taskRepository.existsByTaskKey(request.taskKey())) {
-            throw new DuplicateResourceException("Task key '" + request.taskKey() + "' is already taken");
-        }
+            if (request.taskKey() != null && !request.taskKey().equals(task.getTaskKey())
+                    && taskRepository.existsByTaskKey(request.taskKey())) {
+                throw new DuplicateResourceException("Task key '" + request.taskKey() + "' is already taken");
+            }
 
-        TaskMapper.patchEntity(task, request);
+            TaskMapper.patchEntity(task, request);
 
-        if (request.reporterId() != null) {
-            task.setReporter(resolveEmployee(request.reporterId(), "Reporter"));
-        }
-        if (request.assigneeId() != null) {
-            task.setAssignee(resolveEmployee(request.assigneeId(), "Assignee"));
-        }
-        if (request.tagIds() != null) {
-            task.setTags(resolveTags(request.tagIds()));
-        }
+            if (request.reporterId() != null) {
+                task.setReporter(resolveEmployee(request.reporterId(), "Reporter"));
+            }
+            if (request.assigneeId() != null) {
+                task.setAssignee(resolveEmployee(request.assigneeId(), "Assignee"));
+            }
+            if (request.tagIds() != null) {
+                task.setTags(resolveTags(request.tagIds()));
+            }
 
-        log.info("Partially updated task with id: {}", id);
-        return TaskMapper.toResponse(task);
+            taskRepository.flush();
+            log.info("Partially updated task with id: {}", id);
+            return TaskMapper.toResponse(task);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new DuplicateResourceException(
+                    "Task with id " + id + " was modified by another request. Please retry.");
+        }
     }
 
     /**
@@ -216,18 +262,24 @@ public class TaskService {
      */
     @Transactional
     public TaskResponse selfUpdateTaskStatus(Long id, TaskStatusRequest request, String username) {
-        Task task = taskRepository.findWithRelationsById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
-        Employee employee = employeeRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with username: " + username));
+        try {
+            Task task = taskRepository.findWithRelationsById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
+            Employee employee = employeeRepository.findByUsername(username)
+                    .orElseThrow(() -> new ResourceNotFoundException("Employee not found with username: " + username));
 
-        if (task.getAssignee() != null && task.getAssignee().getId().equals(employee.getId())) {
-            task.setStatus(request.status());
-            log.info("Updated task status for id: {}", id);
-            return TaskMapper.toResponse(task);
+            if (task.getAssignee() != null && task.getAssignee().getId().equals(employee.getId())) {
+                task.setStatus(request.status());
+                taskRepository.flush();
+                log.info("Updated task status for id: {}", id);
+                return TaskMapper.toResponse(task);
+            }
+
+            throw new IllegalStateException("Task with id: " + id + " is not assigned to employee with username: " + username);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new DuplicateResourceException(
+                    "Task with id " + id + " was modified by another request. Please retry.");
         }
-
-        throw new IllegalStateException("Task with id: " + id + " is not assigned to employee with username: " + username);
     }
 
     /**
@@ -245,21 +297,27 @@ public class TaskService {
      */
     @Transactional
     public TaskResponse selfAssignTask(Long id, String username) {
-        Task task = taskRepository.findWithRelationsById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
+        try {
+            Task task = taskRepository.findWithRelationsById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
 
-        if (task.getAssignee() != null && !task.getAssignee().getUsername().equals(username)) {
-            throw new TaskAlreadyAssignedException(
-                    "Task is already assigned to employee '" + task.getAssignee().getFullName() + "'");
+            if (task.getAssignee() != null && !task.getAssignee().getUsername().equals(username)) {
+                throw new TaskAlreadyAssignedException(
+                        "Task is already assigned to employee '" + task.getAssignee().getFullName() + "'");
+            }
+
+            Employee assignee = employeeRepository.findByUsername(username)
+                    .orElseThrow(() -> new ResourceNotFoundException("Employee not found with username: " + username));
+
+            task.setAssignee(assignee);
+
+            taskRepository.flush();
+            log.info("Task {} self-assigned by employee '{}'", id, username);
+            return TaskMapper.toResponse(task);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new DuplicateResourceException(
+                    "Task with id " + id + " was modified by another request. Please retry.");
         }
-
-        Employee assignee = employeeRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with username: " + username));
-
-        task.setAssignee(assignee);
-
-        log.info("Task {} self-assigned by employee '{}'", id, username);
-        return TaskMapper.toResponse(task);
     }
 
     /**
@@ -306,6 +364,34 @@ public class TaskService {
             throw new ResourceNotFoundException("One or more tag IDs are invalid");
         }
         return tags;
+    }
+
+    /**
+     * Loads full task entities for a page of IDs and maps them to response DTOs.
+     *
+     * <p>This is the second step of the two-query approach. The tasks are fetched
+     * with all relations eagerly loaded, then reordered to match the original
+     * page's sort order.</p>
+     *
+     * @param idPage the page of task IDs (with pagination metadata)
+     * @return a page of {@link TaskResponse} DTOs preserving the original order
+     */
+    private Page<TaskResponse> loadTaskPageByIds(Page<Long> idPage) {
+        List<Long> ids = idPage.getContent();
+        if (ids.isEmpty()) {
+            return idPage.map(id -> null);
+        }
+
+        Map<Long, Task> taskMap = taskRepository.findAllWithRelationsByIdIn(ids).stream()
+                .collect(Collectors.toMap(Task::getId, Function.identity()));
+
+        // Preserve the original sort order from the ID query
+        List<TaskResponse> ordered = ids.stream()
+                .map(taskMap::get)
+                .map(TaskMapper::toResponse)
+                .toList();
+
+        return new PageImpl<>(ordered, idPage.getPageable(), idPage.getTotalElements());
     }
 }
 

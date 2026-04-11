@@ -70,7 +70,7 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/api/v1/task/**").authenticated()
                         .requestMatchers("/api/v1/tag/**").authenticated()
-                        .requestMatchers("/api/v1/employee/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/employee/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2

@@ -10,8 +10,10 @@ import com.interview.model.mapper.EmployeeMapper;
 import com.interview.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,9 +76,14 @@ public class EmployeeService {
         }
 
         Employee employee = EmployeeMapper.toEntity(request, passwordEncoder.encode(request.password()));
-        Employee saved = employeeRepository.save(employee);
-        log.info("Created employee with id: {}", saved.getId());
-        return EmployeeMapper.toResponse(saved);
+        try {
+            Employee saved = employeeRepository.save(employee);
+            log.info("Created employee with id: {}", saved.getId());
+            return EmployeeMapper.toResponse(saved);
+        } catch (DataIntegrityViolationException ex) {
+            throw new DuplicateResourceException(
+                    "Username '" + request.username() + "' or email '" + request.email() + "' is already taken");
+        }
     }
 
     /**
@@ -93,22 +100,28 @@ public class EmployeeService {
      */
     @Transactional
     public EmployeeResponse updateEmployee(Long id, EmployeeRequest request) {
-        Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + id));
+        try {
+            Employee employee = employeeRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + id));
 
-        if (!request.username().equals(employee.getUsername())
-                && employeeRepository.existsByUsername(request.username())) {
-            throw new DuplicateResourceException("Username '" + request.username() + "' is already taken");
-        }
-        if (!request.email().equals(employee.getEmail())
-                && employeeRepository.existsByEmail(request.email())) {
-            throw new DuplicateResourceException("Email '" + request.email() + "' is already taken");
-        }
+            if (!request.username().equals(employee.getUsername())
+                    && employeeRepository.existsByUsername(request.username())) {
+                throw new DuplicateResourceException("Username '" + request.username() + "' is already taken");
+            }
+            if (!request.email().equals(employee.getEmail())
+                    && employeeRepository.existsByEmail(request.email())) {
+                throw new DuplicateResourceException("Email '" + request.email() + "' is already taken");
+            }
 
-        EmployeeMapper.fullUpdateEntity(employee, request);
-        employee.setPassword(passwordEncoder.encode(request.password()));
-        log.info("Fully updated employee with id: {}", id);
-        return EmployeeMapper.toResponse(employee);
+            EmployeeMapper.fullUpdateEntity(employee, request);
+            employee.setPassword(passwordEncoder.encode(request.password()));
+            employeeRepository.flush();
+            log.info("Fully updated employee with id: {}", id);
+            return EmployeeMapper.toResponse(employee);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new DuplicateResourceException(
+                    "Employee with id " + id + " was modified by another request. Please retry.");
+        }
     }
 
     /**
@@ -125,24 +138,30 @@ public class EmployeeService {
      */
     @Transactional
     public EmployeeResponse patchEmployee(Long id, EmployeeUpdateRequest request) {
-        Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + id));
+        try {
+            Employee employee = employeeRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + id));
 
-        if (request.username() != null && !request.username().equals(employee.getUsername())
-                && employeeRepository.existsByUsername(request.username())) {
-            throw new DuplicateResourceException("Username '" + request.username() + "' is already taken");
-        }
-        if (request.email() != null && !request.email().equals(employee.getEmail())
-                && employeeRepository.existsByEmail(request.email())) {
-            throw new DuplicateResourceException("Email '" + request.email() + "' is already taken");
-        }
+            if (request.username() != null && !request.username().equals(employee.getUsername())
+                    && employeeRepository.existsByUsername(request.username())) {
+                throw new DuplicateResourceException("Username '" + request.username() + "' is already taken");
+            }
+            if (request.email() != null && !request.email().equals(employee.getEmail())
+                    && employeeRepository.existsByEmail(request.email())) {
+                throw new DuplicateResourceException("Email '" + request.email() + "' is already taken");
+            }
 
-        EmployeeMapper.patchEntity(employee, request);
-        if (request.password() != null) {
-            employee.setPassword(passwordEncoder.encode(request.password()));
+            EmployeeMapper.patchEntity(employee, request);
+            if (request.password() != null) {
+                employee.setPassword(passwordEncoder.encode(request.password()));
+            }
+            employeeRepository.flush();
+            log.info("Partially updated employee with id: {}", id);
+            return EmployeeMapper.toResponse(employee);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new DuplicateResourceException(
+                    "Employee with id " + id + " was modified by another request. Please retry.");
         }
-        log.info("Partially updated employee with id: {}", id);
-        return EmployeeMapper.toResponse(employee);
     }
 
     /**

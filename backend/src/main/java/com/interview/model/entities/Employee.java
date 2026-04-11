@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -22,7 +23,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-
 /**
  * JPA entity representing an employee in the organization.
  *
@@ -74,6 +74,9 @@ public class Employee {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Version
+    private Integer version;
+
     @OneToMany(mappedBy = "reporter")
     @Builder.Default
     private List<Task> reportedTasks = new ArrayList<>();
@@ -81,4 +84,17 @@ public class Employee {
     @OneToMany(mappedBy = "assignee")
     @Builder.Default
     private List<Task> assignedTasks = new ArrayList<>();
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Employee employee = (Employee) o;
+        return id != null && id.equals(employee.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }
