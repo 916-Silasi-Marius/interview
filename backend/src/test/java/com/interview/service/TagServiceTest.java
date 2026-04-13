@@ -1,5 +1,6 @@
 package com.interview.service;
 
+import com.interview.exception.ConcurrentModificationException;
 import com.interview.exception.DuplicateResourceException;
 import com.interview.exception.ResourceNotFoundException;
 import com.interview.model.dto.TagRequest;
@@ -201,7 +202,7 @@ class TagServiceTest {
     }
 
     @Test
-    void updateTag_concurrentModification_throwsDuplicateResourceException() {
+    void updateTag_concurrentModification_throwsConcurrentModificationException() {
         Tag tag = buildTag();
         TagRequest request = new TagRequest("bug", "Updated description");
 
@@ -210,13 +211,13 @@ class TagServiceTest {
                 .when(tagRepository).flush();
 
         assertThatThrownBy(() -> tagService.updateTag(1L, request))
-                .isInstanceOf(DuplicateResourceException.class)
+                .isInstanceOf(ConcurrentModificationException.class)
                 .hasMessageContaining("Tag with id 1")
                 .hasMessageContaining("Please retry");
     }
 
     @Test
-    void patchTag_concurrentModification_throwsDuplicateResourceException() {
+    void patchTag_concurrentModification_throwsConcurrentModificationException() {
         Tag tag = buildTag();
         TagUpdateRequest request = new TagUpdateRequest(null, "Patched desc");
 
@@ -225,7 +226,7 @@ class TagServiceTest {
                 .when(tagRepository).flush();
 
         assertThatThrownBy(() -> tagService.patchTag(1L, request))
-                .isInstanceOf(DuplicateResourceException.class)
+                .isInstanceOf(ConcurrentModificationException.class)
                 .hasMessageContaining("Tag with id 1")
                 .hasMessageContaining("Please retry");
     }

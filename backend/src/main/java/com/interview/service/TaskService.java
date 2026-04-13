@@ -1,8 +1,10 @@
 package com.interview.service;
 
+import com.interview.exception.ConcurrentModificationException;
 import com.interview.exception.DuplicateResourceException;
 import com.interview.exception.ResourceNotFoundException;
 import com.interview.exception.TaskAlreadyAssignedException;
+import com.interview.exception.TaskNotAssignedException;
 import com.interview.model.dto.TaskRequest;
 import com.interview.model.dto.TaskResponse;
 import com.interview.model.dto.TaskStatusRequest;
@@ -15,6 +17,7 @@ import com.interview.repository.EmployeeRepository;
 import com.interview.repository.TagRepository;
 import com.interview.repository.TaskRepository;
 import com.interview.repository.specification.TaskSpecification;
+import io.micrometer.core.annotation.Timed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -60,6 +63,7 @@ public class TaskService {
      * @return a page of {@link TaskResponse} DTOs
      */
     @Transactional(readOnly = true)
+    @Timed(value = "task.service", extraTags = {"method", "getAllTasks"})
     public Page<TaskResponse> getAllTasks(Pageable pageable) {
         log.debug("Fetching tasks page: {}", pageable);
         Page<Long> idPage = taskRepository.findAllIds(pageable);
@@ -74,6 +78,7 @@ public class TaskService {
      * @throws ResourceNotFoundException if no task exists with the given ID
      */
     @Transactional(readOnly = true)
+    @Timed(value = "task.service", extraTags = {"method", "getTaskById"})
     public TaskResponse getTaskById(Long id) {
         Task task = taskRepository.findWithRelationsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + id));
@@ -96,9 +101,10 @@ public class TaskService {
      * @return a page of matching {@link TaskResponse} DTOs
      */
     @Transactional(readOnly = true)
+    @Timed(value = "task.service", extraTags = {"method", "searchTasks"})
     public Page<TaskResponse> searchTasks(String query, Pageable pageable) {
         log.debug("Searching tasks with query: '{}', page: {}", query, pageable);
-        // Step 1: fetch matching IDs with SQL-level pagination (no collection fetch)
+        // Step 1: fetch matching tasks with SQL-level pagination (tags collection not loaded)
         Page<Task> taskPage = taskRepository.findAll(
                 TaskSpecification.titleOrDescriptionContainsAnyWord(query), pageable);
         List<Long> ids = taskPage.getContent().stream().map(Task::getId).toList();
@@ -133,6 +139,7 @@ public class TaskService {
      * @throws ResourceNotFoundException  if the reporter, assignee, or any tag ID is invalid
      */
     @Transactional
+    @Timed(value = "task.service", extraTags = {"method", "createTask"})
     public TaskResponse createTask(TaskRequest request, String username) {
         if (taskRepository.existsByTaskKey(request.taskKey())) {
             throw new DuplicateResourceException("Task key '" + request.taskKey() + "' is already taken");
@@ -173,6 +180,7 @@ public class TaskService {
      * @throws DuplicateResourceException if the new task key is already taken
      */
     @Transactional
+    @Timed(value = "task.service", extraTags = {"method", "updateTask"})
     public TaskResponse updateTask(Long id, TaskRequest request) {
         try {
             Task task = taskRepository.findWithRelationsById(id)
@@ -197,7 +205,7 @@ public class TaskService {
             log.info("Fully updated task with id: {}", id);
             return TaskMapper.toResponse(task);
         } catch (ObjectOptimisticLockingFailureException ex) {
-            throw new DuplicateResourceException(
+            throw new ConcurrentModificationException(
                     "Task with id " + id + " was modified by another request. Please retry.");
         }
     }
@@ -216,6 +224,7 @@ public class TaskService {
      * @throws DuplicateResourceException if the new task key is already taken
      */
     @Transactional
+    @Timed(value = "task.service", extraTags = {"method", "patchTask"})
     public TaskResponse patchTask(Long id, TaskUpdateRequest request) {
         try {
             Task task = taskRepository.findWithRelationsById(id)
@@ -242,7 +251,7 @@ public class TaskService {
             log.info("Partially updated task with id: {}", id);
             return TaskMapper.toResponse(task);
         } catch (ObjectOptimisticLockingFailureException ex) {
-            throw new DuplicateResourceException(
+            throw new ConcurrentModificationException(
                     "Task with id " + id + " was modified by another request. Please retry.");
         }
     }
@@ -258,9 +267,10 @@ public class TaskService {
      * @param username the username of the authenticated employee (from JWT)
      * @return the updated task as a response DTO
      * @throws ResourceNotFoundException if no task or employee exists
-     * @throws IllegalStateException     if the task is not assigned to the authenticated employee
+     * @throws TaskNotAssignedException if the task is not assigned to the authenticated employee
      */
     @Transactional
+    @Timed(value = "task.service", extraTags = {"method", "selfUpdateTaskStatus"})
     public TaskResponse selfUpdateTaskStatus(Long id, TaskStatusRequest request, String username) {
         try {
             Task task = taskRepository.findWithRelationsById(id)
@@ -275,9 +285,9 @@ public class TaskService {
                 return TaskMapper.toResponse(task);
             }
 
-            throw new IllegalStateException("Task with id: " + id + " is not assigned to employee with username: " + username);
+            throw new TaskNotAssignedException("Task with id: " + id + " is not assigned to employee with username: " + username);
         } catch (ObjectOptimisticLockingFailureException ex) {
-            throw new DuplicateResourceException(
+            throw new ConcurrentModificationException(
                     "Task with id " + id + " was modified by another request. Please retry.");
         }
     }
@@ -296,6 +306,7 @@ public class TaskService {
      * @throws TaskAlreadyAssignedException   if the task is already assigned to another employee
      */
     @Transactional
+    @Timed(value = "task.service", extraTags = {"method", "selfAssignTask"})
     public TaskResponse selfAssignTask(Long id, String username) {
         try {
             Task task = taskRepository.findWithRelationsById(id)
@@ -315,7 +326,7 @@ public class TaskService {
             log.info("Task {} self-assigned by employee '{}'", id, username);
             return TaskMapper.toResponse(task);
         } catch (ObjectOptimisticLockingFailureException ex) {
-            throw new DuplicateResourceException(
+            throw new ConcurrentModificationException(
                     "Task with id " + id + " was modified by another request. Please retry.");
         }
     }
@@ -327,6 +338,7 @@ public class TaskService {
      * @throws ResourceNotFoundException if no task exists with the given ID
      */
     @Transactional
+    @Timed(value = "task.service", extraTags = {"method", "deleteTask"})
     public void deleteTask(Long id) {
         if (!taskRepository.existsById(id)) {
             throw new ResourceNotFoundException("Task not found with id: " + id);

@@ -3,6 +3,9 @@ package com.interview.controller;
 import com.interview.model.dto.AuthRequest;
 import com.interview.model.dto.AuthResponse;
 import com.interview.security.TokenService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +33,20 @@ public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final TokenService tokenService;
+    private final MeterRegistry meterRegistry;
+
+    private Counter loginSuccessCounter;
+    private Counter loginFailureCounter;
+
+    @PostConstruct
+    void initCounters() {
+        loginSuccessCounter = Counter.builder("auth.login")
+                .tag("outcome", "success")
+                .description("Successful login attempts").register(meterRegistry);
+        loginFailureCounter = Counter.builder("auth.login")
+                .tag("outcome", "failure")
+                .description("Failed login attempts").register(meterRegistry);
+    }
 
     /**
      * Authenticates a user and returns a JWT token.
@@ -40,13 +58,19 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody AuthRequest request) {
         log.debug("Login attempt for user: {}", request.username());
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.username(), request.password())
-        );
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.username(), request.password())
+            );
 
-        String token = tokenService.generateToken(authentication);
+            String token = tokenService.generateToken(authentication);
 
-        log.info("User '{}' authenticated successfully", request.username());
-        return ResponseEntity.ok(new AuthResponse(token));
+            loginSuccessCounter.increment();
+            log.info("User '{}' authenticated successfully", request.username());
+            return ResponseEntity.ok(new AuthResponse(token));
+        } catch (AuthenticationException ex) {
+            loginFailureCounter.increment();
+            throw ex;
+        }
     }
 }

@@ -1,0 +1,316 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "interview-app-overview",
+    "title": "Interview App — Overview",
+    "tags": ["interview-app", "spring-boot"],
+    "timezone": "browser",
+    "refresh": "10s",
+    "time": { "from": "now-30m", "to": "now" },
+    "panels": [
+      {
+        "title": "🟢 Uptime",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": { "defaults": { "unit": "s" } },
+        "targets": [{ "expr": "process_uptime_milliseconds / 1000", "legendFormat": "Uptime" }]
+      },
+      {
+        "title": "🔐 Login Success",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } } },
+        "targets": [{ "expr": "auth_login_total{outcome=\"success\"}", "legendFormat": "logins" }]
+      },
+      {
+        "title": "🔒 Login Failures",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } } },
+        "targets": [{ "expr": "auth_login_total{outcome=\"failure\"}", "legendFormat": "failures" }]
+      },
+
+      {
+        "title": "🌐 HTTP Metrics",
+        "type": "row",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 },
+        "collapsed": true,
+        "panels": [
+          {
+            "title": "HTTP Request Rate by Endpoint",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10 } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "sum by (method, uri) (rate(http_server_requests_milliseconds_count[5m]))", "legendFormat": "{{method}} {{uri}}" }]
+          },
+          {
+            "title": "HTTP Avg Response Time by Endpoint",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "ms", "custom": { "fillOpacity": 10 } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "sum by (method, uri) (rate(http_server_requests_milliseconds_sum[5m])) / sum by (method, uri) (rate(http_server_requests_milliseconds_count[5m]))", "legendFormat": "{{method}} {{uri}}" }]
+          },
+          {
+            "title": "HTTP Error Rate by Endpoint",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10 } },
+              "overrides": [
+                { "matcher": { "id": "byRegexp", "options": ".*401.*" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+                { "matcher": { "id": "byRegexp", "options": ".*403.*" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }] },
+                { "matcher": { "id": "byRegexp", "options": ".*404.*" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } }] },
+                { "matcher": { "id": "byRegexp", "options": ".*409.*" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }] },
+                { "matcher": { "id": "byRegexp", "options": ".*5.." }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+              ]
+            },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "sum by (method, uri, status) (rate(http_server_requests_milliseconds_count{status=~\"4..|5..\"}[5m]))", "legendFormat": "{{status}} {{method}} {{uri}}" }]
+          },
+          {
+            "title": "HTTP Status Codes",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } },
+              "overrides": [
+                { "matcher": { "id": "byRegexp", "options": "2.." }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+                { "matcher": { "id": "byRegexp", "options": "4.." }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }] },
+                { "matcher": { "id": "byRegexp", "options": "5.." }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+              ]
+            },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "sum by (status) (rate(http_server_requests_milliseconds_count[5m]))", "legendFormat": "{{status}}" }]
+          }
+        ]
+      },
+
+      {
+        "title": "⚠️ Errors & Logs",
+        "type": "row",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+        "collapsed": true,
+        "panels": [
+          {
+            "title": "Application Errors by Type",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "sum by (type) (rate(app_errors_total[5m]))", "legendFormat": "{{type}}" }]
+          },
+          {
+            "title": "Log Events by Level",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } },
+              "overrides": [
+                { "matcher": { "id": "byName", "options": "error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+                { "matcher": { "id": "byName", "options": "warn" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }] },
+                { "matcher": { "id": "byName", "options": "info" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] }
+              ]
+            },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "sum by (level) (rate(logback_events_total[5m]))", "legendFormat": "{{level}}" }]
+          }
+        ]
+      },
+
+      {
+        "title": "⚙️ Service Metrics",
+        "type": "row",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+        "collapsed": true,
+        "panels": [
+          {
+            "title": "Task Service — Call Rate by Method",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10 } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "sum by (method) (rate(task_service_milliseconds_count[5m]))", "legendFormat": "{{method}}" }]
+          },
+          {
+            "title": "Employee Service — Call Rate by Method",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10 } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "sum by (method) (rate(employee_service_milliseconds_count[5m]))", "legendFormat": "{{method}}" }]
+          },
+          {
+            "title": "Tag Service — Call Rate by Method",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10 } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "sum by (method) (rate(tag_service_milliseconds_count[5m]))", "legendFormat": "{{method}}" }]
+          },
+          {
+            "title": "Service Avg Duration by Method",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "ms", "custom": { "fillOpacity": 10 } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [
+              { "expr": "sum by (method) (rate(task_service_milliseconds_sum[5m])) / sum by (method) (rate(task_service_milliseconds_count[5m]))", "legendFormat": "task.{{method}}" },
+              { "expr": "sum by (method) (rate(employee_service_milliseconds_sum[5m])) / sum by (method) (rate(employee_service_milliseconds_count[5m]))", "legendFormat": "employee.{{method}}" },
+              { "expr": "sum by (method) (rate(tag_service_milliseconds_sum[5m])) / sum by (method) (rate(tag_service_milliseconds_count[5m]))", "legendFormat": "tag.{{method}}" }
+            ]
+          }
+        ]
+      },
+
+      {
+        "title": "🗄️ Database",
+        "type": "row",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+        "collapsed": true,
+        "panels": [
+          {
+            "title": "Spring Data Repository Avg Duration",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "ms", "custom": { "fillOpacity": 10 } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "sum by (repository) (rate(spring_data_repository_invocations_milliseconds_sum[5m])) / sum by (repository) (rate(spring_data_repository_invocations_milliseconds_count[5m]))", "legendFormat": "{{repository}}" }]
+          },
+          {
+            "title": "Database — Active / Idle / Pending Connections",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "custom": { "fillOpacity": 10 } },
+              "overrides": [
+                { "matcher": { "id": "byName", "options": "active" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+                { "matcher": { "id": "byName", "options": "idle" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+                { "matcher": { "id": "byName", "options": "pending" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }] },
+                { "matcher": { "id": "byName", "options": "max" }, "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash" } }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "white" } }] }
+              ]
+            },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [
+              { "expr": "hikaricp_connections_active", "legendFormat": "active" },
+              { "expr": "hikaricp_connections_idle", "legendFormat": "idle" },
+              { "expr": "hikaricp_connections_pending", "legendFormat": "pending" },
+              { "expr": "hikaricp_connections_max", "legendFormat": "max" }
+            ]
+          },
+          {
+            "title": "Database — Avg Connection Acquire Time",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "ms", "custom": { "fillOpacity": 10 } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "rate(hikaricp_connections_acquire_milliseconds_sum[5m]) / rate(hikaricp_connections_acquire_milliseconds_count[5m])", "legendFormat": "avg acquire" }]
+          },
+          {
+            "title": "Database — Avg Connection Usage Time",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "ms", "custom": { "fillOpacity": 10 } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "rate(hikaricp_connections_usage_milliseconds_sum[5m]) / rate(hikaricp_connections_usage_milliseconds_count[5m])", "legendFormat": "avg usage" }]
+          }
+        ]
+      },
+
+      {
+        "title": "🖥️ JVM & System",
+        "type": "row",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
+        "collapsed": true,
+        "panels": [
+          {
+            "title": "CPU Usage",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "fillOpacity": 20 } },
+              "overrides": [
+                { "matcher": { "id": "byName", "options": "JVM Process" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+                { "matcher": { "id": "byName", "options": "System" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }] }
+              ]
+            },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [
+              { "expr": "process_cpu_usage", "legendFormat": "JVM Process" },
+              { "expr": "system_cpu_usage", "legendFormat": "System" }
+            ]
+          },
+          {
+            "title": "JVM Heap Memory",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 20 } },
+              "overrides": [
+                { "matcher": { "id": "byName", "options": "Used" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+                { "matcher": { "id": "byName", "options": "Committed" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }] },
+                { "matcher": { "id": "byName", "options": "Max" }, "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash" } }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+              ]
+            },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [
+              { "expr": "sum(jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "Used" },
+              { "expr": "sum(jvm_memory_committed_bytes{area=\"heap\"})", "legendFormat": "Committed" },
+              { "expr": "sum(jvm_memory_max_bytes{area=\"heap\"})", "legendFormat": "Max" }
+            ]
+          },
+          {
+            "title": "JVM Non-Heap Memory",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 20 } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [
+              { "expr": "sum(jvm_memory_used_bytes{area=\"nonheap\"})", "legendFormat": "Used" },
+              { "expr": "sum(jvm_memory_committed_bytes{area=\"nonheap\"})", "legendFormat": "Committed" }
+            ]
+          },
+          {
+            "title": "JVM Threads",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "custom": { "fillOpacity": 10 } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [
+              { "expr": "jvm_threads_live", "legendFormat": "Live" },
+              { "expr": "jvm_threads_daemon", "legendFormat": "Daemon" },
+              { "expr": "jvm_threads_peak", "legendFormat": "Peak" }
+            ]
+          },
+          {
+            "title": "JVM Thread States",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 25 },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": { "defaults": { "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } } },
+            "options": { "legend": { "displayMode": "table", "placement": "right" } },
+            "targets": [{ "expr": "jvm_threads_states", "legendFormat": "{{state}}" }]
+          }
+        ]
+      }
+    ],
+    "schemaVersion": 39
+  },
+  "overwrite": true
+}

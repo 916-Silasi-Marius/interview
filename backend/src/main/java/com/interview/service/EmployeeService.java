@@ -1,5 +1,6 @@
 package com.interview.service;
 
+import com.interview.exception.ConcurrentModificationException;
 import com.interview.exception.DuplicateResourceException;
 import com.interview.exception.ResourceNotFoundException;
 import com.interview.model.dto.EmployeeRequest;
@@ -8,6 +9,7 @@ import com.interview.model.dto.EmployeeUpdateRequest;
 import com.interview.model.entities.Employee;
 import com.interview.model.mapper.EmployeeMapper;
 import com.interview.repository.EmployeeRepository;
+import io.micrometer.core.annotation.Timed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -39,6 +41,7 @@ public class EmployeeService {
      * @return a page of {@link EmployeeResponse} DTOs
      */
     @Transactional(readOnly = true)
+    @Timed(value = "employee.service", extraTags = {"method", "getAllEmployees"})
     public Page<EmployeeResponse> getAllEmployees(Pageable pageable) {
         log.debug("Fetching employees page: {}", pageable);
         return employeeRepository.findAll(pageable)
@@ -53,6 +56,7 @@ public class EmployeeService {
      * @throws ResourceNotFoundException if no employee exists with the given ID
      */
     @Transactional(readOnly = true)
+    @Timed(value = "employee.service", extraTags = {"method", "getEmployeeById"})
     public EmployeeResponse getEmployeeById(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + id));
@@ -67,6 +71,7 @@ public class EmployeeService {
      * @throws DuplicateResourceException if the username or email is already taken
      */
     @Transactional
+    @Timed(value = "employee.service", extraTags = {"method", "createEmployee"})
     public EmployeeResponse createEmployee(EmployeeRequest request) {
         if (employeeRepository.existsByUsername(request.username())) {
             throw new DuplicateResourceException("Username '" + request.username() + "' is already taken");
@@ -99,6 +104,7 @@ public class EmployeeService {
      * @throws DuplicateResourceException if the username or email is already taken
      */
     @Transactional
+    @Timed(value = "employee.service", extraTags = {"method", "updateEmployee"})
     public EmployeeResponse updateEmployee(Long id, EmployeeRequest request) {
         try {
             Employee employee = employeeRepository.findById(id)
@@ -119,7 +125,7 @@ public class EmployeeService {
             log.info("Fully updated employee with id: {}", id);
             return EmployeeMapper.toResponse(employee);
         } catch (ObjectOptimisticLockingFailureException ex) {
-            throw new DuplicateResourceException(
+            throw new ConcurrentModificationException(
                     "Employee with id " + id + " was modified by another request. Please retry.");
         }
     }
@@ -137,6 +143,7 @@ public class EmployeeService {
      * @throws DuplicateResourceException if the new username or email is already taken
      */
     @Transactional
+    @Timed(value = "employee.service", extraTags = {"method", "patchEmployee"})
     public EmployeeResponse patchEmployee(Long id, EmployeeUpdateRequest request) {
         try {
             Employee employee = employeeRepository.findById(id)
@@ -159,7 +166,7 @@ public class EmployeeService {
             log.info("Partially updated employee with id: {}", id);
             return EmployeeMapper.toResponse(employee);
         } catch (ObjectOptimisticLockingFailureException ex) {
-            throw new DuplicateResourceException(
+            throw new ConcurrentModificationException(
                     "Employee with id " + id + " was modified by another request. Please retry.");
         }
     }
@@ -171,6 +178,7 @@ public class EmployeeService {
      * @throws ResourceNotFoundException if no employee exists with the given ID
      */
     @Transactional
+    @Timed(value = "employee.service", extraTags = {"method", "deleteEmployee"})
     public void deleteEmployee(Long id) {
         if (!employeeRepository.existsById(id)) {
             throw new ResourceNotFoundException("Employee not found with id: " + id);

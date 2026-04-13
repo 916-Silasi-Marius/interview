@@ -1,8 +1,10 @@
 package com.interview.service;
 
+import com.interview.exception.ConcurrentModificationException;
 import com.interview.exception.DuplicateResourceException;
 import com.interview.exception.ResourceNotFoundException;
 import com.interview.exception.TaskAlreadyAssignedException;
+import com.interview.exception.TaskNotAssignedException;
 import com.interview.model.dto.TaskRequest;
 import com.interview.model.dto.TaskResponse;
 import com.interview.model.dto.TaskStatusRequest;
@@ -321,7 +323,7 @@ class TaskServiceTest {
     }
 
     @Test
-    void selfUpdateTaskStatus_notAssigned_throwsIllegalStateException() {
+    void selfUpdateTaskStatus_notAssigned_throwsTaskNotAssignedException() {
         Employee reporter = buildEmployee(1L, "reporter");
         Employee otherEmployee = buildEmployee(3L, "other");
         Task task = buildTask(reporter, buildEmployee(2L, "assignee"));
@@ -331,12 +333,12 @@ class TaskServiceTest {
         when(employeeRepository.findByUsername("other")).thenReturn(Optional.of(otherEmployee));
 
         assertThatThrownBy(() -> taskService.selfUpdateTaskStatus(1L, request, "other"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(TaskNotAssignedException.class)
                 .hasMessageContaining("1");
     }
 
     @Test
-    void selfUpdateTaskStatus_assigneeIsNull_throwsIllegalStateException() {
+    void selfUpdateTaskStatus_assigneeIsNull_throwsTaskNotAssignedException() {
         Task task = buildTask(buildEmployee(1L, "reporter"), null);
         Employee employee = buildEmployee(2L, "dev");
         TaskStatusRequest request = new TaskStatusRequest(TaskStatus.DONE);
@@ -345,7 +347,7 @@ class TaskServiceTest {
         when(employeeRepository.findByUsername("dev")).thenReturn(Optional.of(employee));
 
         assertThatThrownBy(() -> taskService.selfUpdateTaskStatus(1L, request, "dev"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(TaskNotAssignedException.class)
                 .hasMessageContaining("1");
     }
 
@@ -422,7 +424,7 @@ class TaskServiceTest {
     }
 
     @Test
-    void updateTask_concurrentModification_throwsDuplicateResourceException() {
+    void updateTask_concurrentModification_throwsConcurrentModificationException() {
         Employee reporter = buildEmployee(1L, "reporter");
         Task task = buildTask(reporter, null);
         TaskRequest request = new TaskRequest("PROJ-1", "Updated", null, null, null, null, null, null, null);
@@ -432,13 +434,13 @@ class TaskServiceTest {
                 .when(taskRepository).flush();
 
         assertThatThrownBy(() -> taskService.updateTask(1L, request))
-                .isInstanceOf(DuplicateResourceException.class)
+                .isInstanceOf(ConcurrentModificationException.class)
                 .hasMessageContaining("Task with id 1")
                 .hasMessageContaining("Please retry");
     }
 
     @Test
-    void patchTask_concurrentModification_throwsDuplicateResourceException() {
+    void patchTask_concurrentModification_throwsConcurrentModificationException() {
         Employee reporter = buildEmployee(1L, "reporter");
         Task task = buildTask(reporter, null);
         TaskUpdateRequest request = new TaskUpdateRequest(null, "Patched", null, null, null, null, null, null, null);
@@ -448,13 +450,13 @@ class TaskServiceTest {
                 .when(taskRepository).flush();
 
         assertThatThrownBy(() -> taskService.patchTask(1L, request))
-                .isInstanceOf(DuplicateResourceException.class)
+                .isInstanceOf(ConcurrentModificationException.class)
                 .hasMessageContaining("Task with id 1")
                 .hasMessageContaining("Please retry");
     }
 
     @Test
-    void selfUpdateTaskStatus_concurrentModification_throwsDuplicateResourceException() {
+    void selfUpdateTaskStatus_concurrentModification_throwsConcurrentModificationException() {
         Employee reporter = buildEmployee(1L, "reporter");
         Employee assignee = buildEmployee(2L, "dev");
         Task task = buildTask(reporter, assignee);
@@ -466,13 +468,13 @@ class TaskServiceTest {
                 .when(taskRepository).flush();
 
         assertThatThrownBy(() -> taskService.selfUpdateTaskStatus(1L, request, "dev"))
-                .isInstanceOf(DuplicateResourceException.class)
+                .isInstanceOf(ConcurrentModificationException.class)
                 .hasMessageContaining("Task with id 1")
                 .hasMessageContaining("Please retry");
     }
 
     @Test
-    void selfAssignTask_concurrentModification_throwsDuplicateResourceException() {
+    void selfAssignTask_concurrentModification_throwsConcurrentModificationException() {
         Employee reporter = buildEmployee(1L, "reporter");
         Task task = buildTask(reporter, null);
         Employee assignee = buildEmployee(2L, "dev");
@@ -483,7 +485,7 @@ class TaskServiceTest {
                 .when(taskRepository).flush();
 
         assertThatThrownBy(() -> taskService.selfAssignTask(1L, "dev"))
-                .isInstanceOf(DuplicateResourceException.class)
+                .isInstanceOf(ConcurrentModificationException.class)
                 .hasMessageContaining("Task with id 1")
                 .hasMessageContaining("Please retry");
     }

@@ -1,0 +1,24 @@
+# ──────────────────────────────────────────────
+# Observability stack: grafana/otel-lgtm (Loki · Grafana · Tempo · Prometheus · Pyroscope + OTel Collector)
+# ──────────────────────────────────────────────
+
+services:
+
+  # ───── LGTM (Loki + Grafana + Tempo + Prometheus + Pyroscope + OTel Collector) ─────
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: lgtm
+    ports:
+      - "3000:3000"   # Grafana
+      - "3100:3100"   # Loki
+      - "4040:4040"   # Pyroscope
+      - "4318:4318"   # OTLP HTTP
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - lgtm-data:/data
+
+volumes:
+  lgtm-data:

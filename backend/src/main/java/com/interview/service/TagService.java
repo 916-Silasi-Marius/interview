@@ -1,5 +1,6 @@
 package com.interview.service;
 
+import com.interview.exception.ConcurrentModificationException;
 import com.interview.exception.DuplicateResourceException;
 import com.interview.exception.ResourceNotFoundException;
 import com.interview.model.dto.TagRequest;
@@ -8,6 +9,7 @@ import com.interview.model.dto.TagUpdateRequest;
 import com.interview.model.entities.Tag;
 import com.interview.model.mapper.TagMapper;
 import com.interview.repository.TagRepository;
+import io.micrometer.core.annotation.Timed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -37,6 +39,7 @@ public class TagService {
      * @return a page of {@link TagResponse} DTOs
      */
     @Transactional(readOnly = true)
+    @Timed(value = "tag.service", extraTags = {"method", "getAllTags"})
     public Page<TagResponse> getAllTags(Pageable pageable) {
         log.debug("Fetching tags page: {}", pageable);
         return tagRepository.findAll(pageable)
@@ -51,6 +54,7 @@ public class TagService {
      * @throws ResourceNotFoundException if no tag exists with the given ID
      */
     @Transactional(readOnly = true)
+    @Timed(value = "tag.service", extraTags = {"method", "getTagById"})
     public TagResponse getTagById(Long id) {
         Tag tag = tagRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Tag not found with id: " + id));
@@ -65,6 +69,7 @@ public class TagService {
      * @throws DuplicateResourceException if the tag name is already taken
      */
     @Transactional
+    @Timed(value = "tag.service", extraTags = {"method", "createTag"})
     public TagResponse createTag(TagRequest request) {
         if (tagRepository.existsByName(request.name())) {
             throw new DuplicateResourceException("Tag name '" + request.name() + "' is already taken");
@@ -93,6 +98,7 @@ public class TagService {
      * @throws DuplicateResourceException if the new tag name is already taken
      */
     @Transactional
+    @Timed(value = "tag.service", extraTags = {"method", "updateTag"})
     public TagResponse updateTag(Long id, TagRequest request) {
         try {
             Tag tag = tagRepository.findById(id)
@@ -108,7 +114,7 @@ public class TagService {
             log.info("Fully updated tag with id: {}", id);
             return TagMapper.toResponse(tag);
         } catch (ObjectOptimisticLockingFailureException ex) {
-            throw new DuplicateResourceException(
+            throw new ConcurrentModificationException(
                     "Tag with id " + id + " was modified by another request. Please retry.");
         }
     }
@@ -126,6 +132,7 @@ public class TagService {
      * @throws DuplicateResourceException if the new tag name is already taken
      */
     @Transactional
+    @Timed(value = "tag.service", extraTags = {"method", "patchTag"})
     public TagResponse patchTag(Long id, TagUpdateRequest request) {
         try {
             Tag tag = tagRepository.findById(id)
@@ -141,7 +148,7 @@ public class TagService {
             log.info("Partially updated tag with id: {}", id);
             return TagMapper.toResponse(tag);
         } catch (ObjectOptimisticLockingFailureException ex) {
-            throw new DuplicateResourceException(
+            throw new ConcurrentModificationException(
                     "Tag with id " + id + " was modified by another request. Please retry.");
         }
     }
@@ -153,6 +160,7 @@ public class TagService {
      * @throws ResourceNotFoundException if no tag exists with the given ID
      */
     @Transactional
+    @Timed(value = "tag.service", extraTags = {"method", "deleteTag"})
     public void deleteTag(Long id) {
         if (!tagRepository.existsById(id)) {
             throw new ResourceNotFoundException("Tag not found with id: " + id);
@@ -161,4 +169,3 @@ public class TagService {
         log.info("Deleted tag with id: {}", id);
     }
 }
-

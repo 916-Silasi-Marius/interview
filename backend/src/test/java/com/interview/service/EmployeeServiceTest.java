@@ -1,5 +1,6 @@
 package com.interview.service;
 
+import com.interview.exception.ConcurrentModificationException;
 import com.interview.exception.DuplicateResourceException;
 import com.interview.exception.ResourceNotFoundException;
 import com.interview.model.dto.EmployeeRequest;
@@ -263,7 +264,7 @@ class EmployeeServiceTest {
     }
 
     @Test
-    void updateEmployee_concurrentModification_throwsDuplicateResourceException() {
+    void updateEmployee_concurrentModification_throwsConcurrentModificationException() {
         Employee employee = buildEmployee();
         EmployeeRequest request = new EmployeeRequest("jdoe", "jdoe@example.com", "newpass123",
                 "Updated", EmployeeRole.ADMIN, true);
@@ -274,13 +275,13 @@ class EmployeeServiceTest {
                 .when(employeeRepository).flush();
 
         assertThatThrownBy(() -> employeeService.updateEmployee(1L, request))
-                .isInstanceOf(DuplicateResourceException.class)
+                .isInstanceOf(ConcurrentModificationException.class)
                 .hasMessageContaining("Employee with id 1")
                 .hasMessageContaining("Please retry");
     }
 
     @Test
-    void patchEmployee_concurrentModification_throwsDuplicateResourceException() {
+    void patchEmployee_concurrentModification_throwsConcurrentModificationException() {
         Employee employee = buildEmployee();
         EmployeeUpdateRequest request = new EmployeeUpdateRequest(null, null, null, "Patched", null, null);
 
@@ -289,7 +290,7 @@ class EmployeeServiceTest {
                 .when(employeeRepository).flush();
 
         assertThatThrownBy(() -> employeeService.patchEmployee(1L, request))
-                .isInstanceOf(DuplicateResourceException.class)
+                .isInstanceOf(ConcurrentModificationException.class)
                 .hasMessageContaining("Employee with id 1")
                 .hasMessageContaining("Please retry");
     }
