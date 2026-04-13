@@ -110,7 +110,7 @@ public class TaskService {
         List<Long> ids = taskPage.getContent().stream().map(Task::getId).toList();
 
         if (ids.isEmpty()) {
-            return taskPage.map(TaskMapper::toResponse);
+            return Page.empty(pageable);
         }
 
         // Step 2: load full entities with relations for just those IDs
@@ -406,4 +406,3 @@ public class TaskService {
         return new PageImpl<>(ordered, idPage.getPageable(), idPage.getTotalElements());
     }
 }
-

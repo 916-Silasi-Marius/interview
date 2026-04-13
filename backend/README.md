@@ -31,6 +31,11 @@ docker compose up -d
 
 This starts Grafana, Prometheus, Loki, Tempo, and Pyroscope in a single container.
 
+A pre-built dashboard is automatically loaded when the container starts — no manual import needed. Open Grafana and look for **"Interview App — Overview"**.
+
+The dashboard includes: HTTP metrics, error rates, service method durations, JVM stats, database connection pools, and login counters.
+
+
 ### 2. Build and run the app
 
 ```bash
@@ -249,16 +254,6 @@ After starting the Docker stack (`docker compose up -d`):
 | Loki        | Internal (port 3100)                     | Log aggregation          |
 | Tempo       | Internal (port 3200)                     | Distributed tracing      |
 | Pyroscope   | Internal (port 4040)                     | Continuous profiling     |
-
-A pre-built dashboard can be imported into Grafana:
-
-```bash
-curl -X POST http://localhost:3000/api/dashboards/db \
-  -H "Content-Type: application/json" \
-  -d @observability/dashboard.json
-```
-
-The dashboard includes: HTTP metrics, error rates, service method durations, JVM stats, database connection pools, and login counters.
 
 ---
 

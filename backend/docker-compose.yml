@@ -19,6 +19,8 @@ services:
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
     volumes:
       - lgtm-data:/data
+      - ./observability/provisioning-dashboards.yml:/etc/grafana/provisioning/dashboards/interview.yml
+      - ./observability/dashboard.json:/etc/grafana/dashboards/interview-app-overview.json
 
 volumes:
   lgtm-data:

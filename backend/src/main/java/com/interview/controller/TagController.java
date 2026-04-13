@@ -1,9 +1,15 @@
 package com.interview.controller;
 
+import com.interview.model.dto.ErrorResponse;
 import com.interview.model.dto.TagRequest;
 import com.interview.model.dto.TagResponse;
 import com.interview.model.dto.TagUpdateRequest;
 import com.interview.service.TagService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,76 +38,94 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/tag")
 @RequiredArgsConstructor
+@Tag(name = "Tags", description = "Tag management — labels that can be applied to tasks")
 public class TagController {
 
     private final TagService tagService;
 
-    /**
-     * Retrieves a paginated list of all tags.
-     *
-     * @param pageable pagination parameters (page, size, sort)
-     * @return a page of tag responses
-     */
+    @Operation(summary = "List all tags", description = "Retrieves a paginated list of all tags.")
+    @ApiResponse(responseCode = "200", description = "Page of tags returned")
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping
     public ResponseEntity<Page<TagResponse>> getAllTags(@PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(tagService.getAllTags(pageable));
     }
 
-    /**
-     * Retrieves a single tag by its ID.
-     *
-     * @param id the tag ID
-     * @return the tag details
-     */
+    @Operation(summary = "Get tag by ID", description = "Retrieves a single tag by its ID.")
+    @ApiResponse(responseCode = "200", description = "Tag found")
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Tag not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping("/{id}")
     public ResponseEntity<TagResponse> getTagById(@PathVariable Long id) {
         return ResponseEntity.ok(tagService.getTagById(id));
     }
 
-    /**
-     * Creates a new tag.
-     *
-     * @param request the tag creation request (validated)
-     * @return the created tag with HTTP 201 status
-     */
+    @Operation(summary = "Create a tag",
+            description = "Creates a new tag with a unique name. Requires ADMIN or PROJECT_MANAGER role.")
+    @ApiResponse(responseCode = "201", description = "Tag created")
+    @ApiResponse(responseCode = "400", description = "Validation failed — name is required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Insufficient permissions — requires ADMIN or PROJECT_MANAGER",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "Tag name already exists",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public ResponseEntity<TagResponse> createTag(@Valid @RequestBody TagRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(tagService.createTag(request));
     }
 
-    /**
-     * Fully updates an existing tag.
-     *
-     * @param id      the ID of the tag to update
-     * @param request the full update request (validated, all fields required)
-     * @return the updated tag details
-     */
+    @Operation(summary = "Full update a tag",
+            description = "Fully updates an existing tag. All fields are overwritten. Requires ADMIN or PROJECT_MANAGER role.")
+    @ApiResponse(responseCode = "200", description = "Tag updated")
+    @ApiResponse(responseCode = "400", description = "Validation failed",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Insufficient permissions",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Tag not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "Tag name already exists or concurrent modification",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public ResponseEntity<TagResponse> updateTag(@PathVariable Long id, @Valid @RequestBody TagRequest request) {
         return ResponseEntity.ok(tagService.updateTag(id, request));
     }
 
-    /**
-     * Partially updates an existing tag.
-     *
-     * @param id      the ID of the tag to patch
-     * @param request the partial update request (validated, only provided fields are applied)
-     * @return the updated tag details
-     */
+    @Operation(summary = "Partial update a tag",
+            description = "Partially updates a tag. Only non-null fields are applied. Requires ADMIN or PROJECT_MANAGER role.")
+    @ApiResponse(responseCode = "200", description = "Tag patched")
+    @ApiResponse(responseCode = "400", description = "Validation failed",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Insufficient permissions",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Tag not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "Tag name already exists or concurrent modification",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public ResponseEntity<TagResponse> patchTag(@PathVariable Long id, @Valid @RequestBody TagUpdateRequest request) {
         return ResponseEntity.ok(tagService.patchTag(id, request));
     }
 
-    /**
-     * Deletes a tag by its ID.
-     *
-     * @param id the ID of the tag to delete
-     * @return HTTP 204 No Content on success
-     */
+    @Operation(summary = "Delete a tag", description = "Deletes a tag by its ID. Requires ADMIN or PROJECT_MANAGER role.")
+    @ApiResponse(responseCode = "204", description = "Tag deleted")
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Insufficient permissions",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Tag not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public ResponseEntity<Void> deleteTag(@PathVariable Long id) {
@@ -109,4 +133,3 @@ public class TagController {
         return ResponseEntity.noContent().build();
     }
 }
-

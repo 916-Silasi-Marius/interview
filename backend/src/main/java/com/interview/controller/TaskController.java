@@ -1,10 +1,17 @@
 package com.interview.controller;
 
+import com.interview.model.dto.ErrorResponse;
 import com.interview.model.dto.TaskRequest;
 import com.interview.model.dto.TaskResponse;
 import com.interview.model.dto.TaskStatusRequest;
 import com.interview.model.dto.TaskUpdateRequest;
 import com.interview.service.TaskService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -32,129 +39,152 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/task")
 @RequiredArgsConstructor
 @Validated
+@Tag(name = "Tasks", description = "Task management — CRUD operations, search, self-assign, and status updates")
 public class TaskController {
 
     private final TaskService taskService;
 
-    /**
-     * Retrieves a paginated list of all tasks.
-     *
-     * @param pageable pagination parameters (page, size, sort)
-     * @return a page of task responses
-     */
+    @Operation(summary = "List all tasks", description = "Retrieves a paginated list of all tasks with their reporter, assignee, and tags.")
+    @ApiResponse(responseCode = "200", description = "Page of tasks returned")
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping
     public ResponseEntity<Page<TaskResponse>> getAllTasks(@PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(taskService.getAllTasks(pageable));
     }
 
-    /**
-     * Searches for tasks whose title or description matches the given query.
-     *
-     * <p>Performs a case-insensitive substring match. Useful for checking
-     * whether a similar task already exists before creating a new one.</p>
-     *
-     * @param query    the search term (2–100 characters)
-     * @param pageable pagination parameters (page, size, sort)
-     * @return a page of matching task responses
-     */
+    @Operation(summary = "Search tasks",
+            description = "Searches for tasks whose title or description contains any of the given keywords. "
+                    + "Case-insensitive substring match. Query is split by whitespace into individual keywords.")
+    @ApiResponse(responseCode = "200", description = "Page of matching tasks returned")
+    @ApiResponse(responseCode = "400", description = "Invalid search query (blank or out of range)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping("/search")
     public ResponseEntity<Page<TaskResponse>> searchTasks(
             @RequestParam
             @NotBlank(message = "Search query must not be blank")
             @Size(min = 2, max = 100, message = "Search query must be between 2 and 100 characters")
+            @Parameter(description = "Search term (2–100 characters)", example = "login")
             String query,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(taskService.searchTasks(query, pageable));
     }
 
-    /**
-     * Retrieves a single task by its ID.
-     *
-     * @param id the task ID
-     * @return the task details
-     */
+    @Operation(summary = "Get task by ID", description = "Retrieves a single task by its ID, including reporter, assignee, and tags.")
+    @ApiResponse(responseCode = "200", description = "Task found")
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Task not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping("/{id}")
     public ResponseEntity<TaskResponse> getTaskById(@PathVariable Long id) {
         return ResponseEntity.ok(taskService.getTaskById(id));
     }
 
-    /**
-     * Creates a new task.
-     *
-     * @param request the task creation request (validated)
-     * @param jwt     the JWT of the authenticated user (injected by Spring Security)
-     * @return the created task with HTTP 201 status
-     */
+    @Operation(summary = "Create a task",
+            description = "Creates a new task. Requires ADMIN or PROJECT_MANAGER role. "
+                    + "If no reporterId is provided, the authenticated user is set as the reporter.")
+    @ApiResponse(responseCode = "201", description = "Task created")
+    @ApiResponse(responseCode = "400", description = "Validation failed",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Insufficient permissions — requires ADMIN or PROJECT_MANAGER",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Reporter, assignee, or tag ID not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "Task key already exists",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody TaskRequest request,
-                                                   @AuthenticationPrincipal Jwt jwt) {
+                                                   @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.status(HttpStatus.CREATED).body(taskService.createTask(request, jwt.getSubject()));
     }
 
-    /**
-     * Fully updates an existing task.
-     *
-     * @param id      the ID of the task to update
-     * @param request the full update request (validated, all fields required)
-     * @return the updated task details
-     */
+    @Operation(summary = "Full update a task",
+            description = "Fully updates an existing task. All fields are overwritten. Requires ADMIN or PROJECT_MANAGER role.")
+    @ApiResponse(responseCode = "200", description = "Task updated")
+    @ApiResponse(responseCode = "400", description = "Validation failed",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Insufficient permissions",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Task, reporter, assignee, or tag not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "Task key already exists or concurrent modification",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public ResponseEntity<TaskResponse> updateTask(@PathVariable Long id, @Valid @RequestBody TaskRequest request) {
         return ResponseEntity.ok(taskService.updateTask(id, request));
     }
 
-    /**
-     * Partially updates an existing task.
-     *
-     * @param id      the ID of the task to patch
-     * @param request the partial update request (validated, only provided fields are applied)
-     * @return the updated task details
-     */
+    @Operation(summary = "Partial update a task",
+            description = "Partially updates a task. Only non-null fields are applied. Requires ADMIN or PROJECT_MANAGER role.")
+    @ApiResponse(responseCode = "200", description = "Task patched")
+    @ApiResponse(responseCode = "400", description = "Validation failed",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Insufficient permissions",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Task, reporter, assignee, or tag not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "Task key already exists or concurrent modification",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public ResponseEntity<TaskResponse> patchTask(@PathVariable Long id, @Valid @RequestBody TaskUpdateRequest request) {
         return ResponseEntity.ok(taskService.patchTask(id, request));
     }
 
-    /**
-     * Updates the status of a task assigned to the currently authenticated employee.
-     *
-     * @param id      the ID of the task to update
-     * @param request the update request containing the new status (validated)
-     * @param jwt     the JWT of the authenticated user (injected by Spring Security)
-     * @return the updated task details
-     */
+    @Operation(summary = "Update own task status",
+            description = "Updates the status of a task assigned to the currently authenticated employee. "
+                    + "Only the assignee of the task can use this endpoint.")
+    @ApiResponse(responseCode = "200", description = "Task status updated")
+    @ApiResponse(responseCode = "400", description = "Validation failed — status is required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Task is not assigned to the authenticated employee",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Task or employee not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PatchMapping("/{id}/status")
     public ResponseEntity<TaskResponse> selfUpdateTaskStatus(@PathVariable Long id,
                                                              @Valid @RequestBody TaskStatusRequest request,
-                                                             @AuthenticationPrincipal Jwt jwt) {
+                                                             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(taskService.selfUpdateTaskStatus(id, request, jwt.getSubject()));
     }
 
-    /**
-     * Self-assigns a task to the currently authenticated employee.
-     *
-     * <p>Uses the JWT subject (username) to resolve the employee.
-     * Any authenticated user can self-assign a task.</p>
-     *
-     * @param id  the ID of the task to self-assign
-     * @param jwt the JWT of the authenticated user (injected by Spring Security)
-     * @return the updated task details
-     */
+    @Operation(summary = "Self-assign a task",
+            description = "Assigns the task to the currently authenticated employee. "
+                    + "Fails if the task is already assigned to a different employee.")
+    @ApiResponse(responseCode = "200", description = "Task self-assigned")
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Task or employee not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "Task is already assigned to another employee",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PatchMapping("/{id}/self-assign")
     public ResponseEntity<TaskResponse> selfAssignTask(@PathVariable Long id,
-                                                       @AuthenticationPrincipal Jwt jwt) {
+                                                       @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(taskService.selfAssignTask(id, jwt.getSubject()));
     }
 
-    /**
-     * Deletes a task by its ID.
-     *
-     * @param id the ID of the task to delete
-     * @return HTTP 204 No Content on success
-     */
+    @Operation(summary = "Delete a task", description = "Deletes a task by its ID. Requires ADMIN or PROJECT_MANAGER role.")
+    @ApiResponse(responseCode = "204", description = "Task deleted")
+    @ApiResponse(responseCode = "401", description = "Authentication required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Insufficient permissions",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Task not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
@@ -162,4 +192,3 @@ public class TaskController {
         return ResponseEntity.noContent().build();
     }
 }
-
