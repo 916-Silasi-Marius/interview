@@ -8,11 +8,6 @@ package com.interview.exception;
  */
 public class TaskAlreadyAssignedException extends RuntimeException {
 
-    /**
-     * Constructs a new task already assigned exception with the specified detail message.
-     *
-     * @param message a description of the conflict
-     */
     public TaskAlreadyAssignedException(String message) {
         super(message);
     }

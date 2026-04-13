@@ -15,8 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Loads user credentials and roles from the {@code employee} table.
  * The employee's {@code role} is mapped to a Spring Security authority
- * (e.g., {@code ADMIN} → {@code ROLE_ADMIN}) and the {@code isActive}
- * flag controls whether the account is enabled.</p>
+ * (e.g., {@code ADMIN} → {@code ROLE_ADMIN}).</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -41,7 +40,6 @@ public class EmployeeUserDetailsService implements UserDetailsService {
                 .username(employee.getUsername())
                 .password(employee.getPassword())
                 .roles(employee.getRole().name())
-                .disabled(!employee.getIsActive())
                 .build();
     }
 }

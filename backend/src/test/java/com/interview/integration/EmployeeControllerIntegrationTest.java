@@ -76,7 +76,6 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
                     .andExpect(jsonPath("$.email").value("john.doe@example.com"))
                     .andExpect(jsonPath("$.fullName").value("John Doe"))
                     .andExpect(jsonPath("$.role").value("ADMIN"))
-                    .andExpect(jsonPath("$.isActive").value(true))
                     .andExpect(jsonPath("$.createdAt").isNotEmpty())
                     .andExpect(jsonPath("$.updatedAt").isNotEmpty());
         }
@@ -101,7 +100,7 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
         void create_returns201() throws Exception {
             EmployeeRequest request = new EmployeeRequest(
                     "newuser", "new@example.com", "password123", "New User",
-                    EmployeeRole.QA, true);
+                    EmployeeRole.QA);
 
             mockMvc.perform(post("/api/v1/employee")
                             .header("Authorization", bearer(adminToken))
@@ -112,8 +111,7 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
                     .andExpect(jsonPath("$.username").value("newuser"))
                     .andExpect(jsonPath("$.email").value("new@example.com"))
                     .andExpect(jsonPath("$.fullName").value("New User"))
-                    .andExpect(jsonPath("$.role").value("QA"))
-                    .andExpect(jsonPath("$.isActive").value(true));
+                    .andExpect(jsonPath("$.role").value("QA"));
         }
 
         @Test
@@ -121,7 +119,7 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
         void create_duplicateUsername_returns409() throws Exception {
             EmployeeRequest request = new EmployeeRequest(
                     "jdoe", "unique@example.com", "password123", "Another Doe",
-                    EmployeeRole.DEVELOPER, true);
+                    EmployeeRole.DEVELOPER);
 
             mockMvc.perform(post("/api/v1/employee")
                             .header("Authorization", bearer(adminToken))
@@ -137,7 +135,7 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
         void create_duplicateEmail_returns409() throws Exception {
             EmployeeRequest request = new EmployeeRequest(
                     "unique", "john.doe@example.com", "password123", "Another Doe",
-                    EmployeeRole.DEVELOPER, true);
+                    EmployeeRole.DEVELOPER);
 
             mockMvc.perform(post("/api/v1/employee")
                             .header("Authorization", bearer(adminToken))
@@ -150,8 +148,7 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Invalid body returns 400 with field errors")
         void create_invalidBody_returns400() throws Exception {
-            EmployeeRequest request = new EmployeeRequest(
-                    "", "not-an-email", "short", "", null, null);
+            EmployeeRequest request = new EmployeeRequest("", "not-an-email", "short", "", null);
 
             mockMvc.perform(post("/api/v1/employee")
                             .header("Authorization", bearer(adminToken))
@@ -174,7 +171,7 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
         void update_returns200() throws Exception {
             EmployeeRequest request = new EmployeeRequest(
                     "jdoe", "john.updated@example.com", "newpassword123",
-                    "John Doe Updated", EmployeeRole.ADMIN, true);
+                    "John Doe Updated", EmployeeRole.ADMIN);
 
             mockMvc.perform(put("/api/v1/employee/1")
                             .header("Authorization", bearer(adminToken))
@@ -190,7 +187,7 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
         void update_notFound_returns404() throws Exception {
             EmployeeRequest request = new EmployeeRequest(
                     "ghost", "ghost@example.com", "password123",
-                    "Ghost User", EmployeeRole.DEVELOPER, true);
+                    "Ghost User", EmployeeRole.DEVELOPER);
 
             mockMvc.perform(put("/api/v1/employee/999")
                             .header("Authorization", bearer(adminToken))
@@ -208,7 +205,7 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
         @DisplayName("Partial update changes only provided fields")
         void patch_returns200() throws Exception {
             EmployeeUpdateRequest request = new EmployeeUpdateRequest(
-                    null, null, null, "John D. Patched", null, null);
+                    null, null, null, "John D. Patched", null);
 
             mockMvc.perform(patch("/api/v1/employee/1")
                             .header("Authorization", bearer(adminToken))
@@ -216,8 +213,8 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
                             .content(toJson(request)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.fullName").value("John D. Patched"))
-                    .andExpect(jsonPath("$.username").value("jdoe"))       // unchanged
-                    .andExpect(jsonPath("$.role").value("ADMIN"));          // unchanged
+                    .andExpect(jsonPath("$.username").value("jdoe"))
+                    .andExpect(jsonPath("$.role").value("ADMIN"));
         }
     }
 
@@ -228,10 +225,9 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Deletes employee and returns 204")
         void delete_returns204() throws Exception {
-            // Create a disposable employee first
             EmployeeRequest createReq = new EmployeeRequest(
                     "disposable", "disposable@example.com", "password123",
-                    "Disposable User", EmployeeRole.QA, true);
+                    "Disposable User", EmployeeRole.QA);
 
             String createResponse = mockMvc.perform(post("/api/v1/employee")
                             .header("Authorization", bearer(adminToken))
@@ -240,13 +236,12 @@ class EmployeeControllerIntegrationTest extends IntegrationTestBase {
                     .andExpect(status().isCreated())
                     .andReturn().getResponse().getContentAsString();
 
-            Long createdId = objectMapper.readTree(createResponse).get("id").asLong();
+            long createdId = objectMapper.readTree(createResponse).get("id").asLong();
 
             mockMvc.perform(delete("/api/v1/employee/" + createdId)
                             .header("Authorization", bearer(adminToken)))
                     .andExpect(status().isNoContent());
 
-            // Verify it's gone
             mockMvc.perform(get("/api/v1/employee/" + createdId)
                             .header("Authorization", bearer(adminToken)))
                     .andExpect(status().isNotFound());

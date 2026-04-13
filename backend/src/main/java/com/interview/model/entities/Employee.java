@@ -27,7 +27,7 @@ import java.util.List;
  * JPA entity representing an employee in the organization.
  *
  * <p>Maps to the {@code employee} table. Each employee has a unique username
- * and email, a hashed password, a role, and an active status flag.
+ * and email, a hashed password and a role.
  * Employees can be referenced as reporters or assignees on {@link Task} entities.</p>
  *
  * @see Task
@@ -61,10 +61,6 @@ public class Employee {
     @Column(nullable = false, length = 20)
     @Builder.Default
     private EmployeeRole role = EmployeeRole.DEVELOPER;
-
-    @Column(name = "is_active", nullable = false)
-    @Builder.Default
-    private Boolean isActive = true;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

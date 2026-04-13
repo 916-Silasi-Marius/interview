@@ -16,7 +16,6 @@ public record EmployeeResponse(
         String email,
         String fullName,
         EmployeeRole role,
-        Boolean isActive,
         Instant createdAt,
         Instant updatedAt
 ) {}

@@ -28,7 +28,5 @@ public record EmployeeRequest(
         @Size(max = 100, message = "Full name must not exceed 100 characters")
         String fullName,
 
-        EmployeeRole role,
-
-        Boolean isActive
+        EmployeeRole role
 ) {}

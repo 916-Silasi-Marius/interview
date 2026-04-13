@@ -29,7 +29,6 @@ public class TestUtils {
                 .password("encoded")
                 .fullName("John Doe")
                 .role(EmployeeRole.DEVELOPER)
-                .isActive(true)
                 .createdAt(FIXED_CREATED_AT)
                 .updatedAt(FIXED_UPDATED_AT)
                 .build();
@@ -43,7 +42,6 @@ public class TestUtils {
                 .password("encoded")
                 .fullName("Full " + username)
                 .role(EmployeeRole.DEVELOPER)
-                .isActive(true)
                 .createdAt(FIXED_CREATED_AT)
                 .updatedAt(FIXED_UPDATED_AT)
                 .build();
@@ -84,7 +82,7 @@ public class TestUtils {
 
     public static EmployeeResponse buildEmployeeResponse() {
         return new EmployeeResponse(1L, "jdoe", "jdoe@example.com", "John Doe",
-                EmployeeRole.DEVELOPER, true, FIXED_CREATED_AT, FIXED_UPDATED_AT);
+                EmployeeRole.DEVELOPER, FIXED_CREATED_AT, FIXED_UPDATED_AT);
     }
 
     public static TaskResponse buildTaskResponse() {

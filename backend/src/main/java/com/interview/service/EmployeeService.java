@@ -184,6 +184,6 @@ public class EmployeeService {
             throw new ResourceNotFoundException("Employee not found with id: " + id);
         }
         employeeRepository.deleteById(id);
-        log.info("Deleted employee with id: {} and cleared task references", id);
+        log.info("Deleted employee with id: {}", id);
     }
 }

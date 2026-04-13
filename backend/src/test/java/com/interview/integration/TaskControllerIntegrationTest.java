@@ -122,7 +122,6 @@ class TaskControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Matching query returns results")
         void search_found() throws Exception {
-            // "design" matches PROJ-4 title "Design dashboard wireframes"
             mockMvc.perform(get("/api/v1/task/search")
                             .param("query", "design")
                             .header("Authorization", bearer(adminToken)))
@@ -145,7 +144,6 @@ class TaskControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Multi-word query matches any word")
         void search_multiWord_returnsMatches() throws Exception {
-            // "api design" — "api" matches PROJ-5, "design" matches PROJ-4
             mockMvc.perform(get("/api/v1/task/search")
                             .param("query", "api design")
                             .header("Authorization", bearer(adminToken)))
@@ -173,7 +171,7 @@ class TaskControllerIntegrationTest extends IntegrationTestBase {
                     .andExpect(jsonPath("$.taskKey").value("NEW-1"))
                     .andExpect(jsonPath("$.title").value("New task"))
                     .andExpect(jsonPath("$.status").value("TODO"))
-                    .andExpect(jsonPath("$.reporterId").value(2))       // asmith id=2
+                    .andExpect(jsonPath("$.reporterId").value(2))
                     .andExpect(jsonPath("$.reporterName").value("Alice Smith"))
                     .andExpect(jsonPath("$.assigneeId").value(3))
                     .andExpect(jsonPath("$.assigneeName").value("Bob Wilson"))
@@ -319,8 +317,8 @@ class TaskControllerIntegrationTest extends IntegrationTestBase {
                             .content(toJson(request)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.title").value("Patched title only"))
-                    .andExpect(jsonPath("$.taskKey").value("PROJ-1"))     // unchanged
-                    .andExpect(jsonPath("$.status").value("DONE"));        // unchanged
+                    .andExpect(jsonPath("$.taskKey").value("PROJ-1"))
+                    .andExpect(jsonPath("$.status").value("DONE"));
         }
     }
 
@@ -331,7 +329,6 @@ class TaskControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Assignee can update their own task status")
         void selfUpdateStatus_asAssignee_returns200() throws Exception {
-            // bwilson (DEV_USER) is assignee of PROJ-3 (id=3, status=TODO)
             String devToken = obtainToken(DEV_USER);
             TaskStatusRequest request = new TaskStatusRequest(TaskStatus.IN_PROGRESS);
 
@@ -346,7 +343,6 @@ class TaskControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Non-assignee gets 403")
         void selfUpdateStatus_notAssignee_returns403() throws Exception {
-            // cjones (DEV_USER_2) is NOT the assignee of PROJ-3 (assigned to bwilson)
             String dev2Token = obtainToken(DEV_USER_2);
             TaskStatusRequest request = new TaskStatusRequest(TaskStatus.DONE);
 
@@ -365,7 +361,6 @@ class TaskControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Self-assign unassigned task succeeds")
         void selfAssign_unassigned_returns200() throws Exception {
-            // PROJ-5 (id=5) has no assignee
             String devToken = obtainToken(DEV_USER);
 
             mockMvc.perform(patch("/api/v1/task/5/self-assign")
@@ -378,7 +373,6 @@ class TaskControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Self-assign task already assigned to another returns 409")
         void selfAssign_alreadyAssigned_returns409() throws Exception {
-            // PROJ-4 (id=4) is assigned to cjones(4) — bwilson cannot self-assign
             String devToken = obtainToken(DEV_USER);
 
             mockMvc.perform(patch("/api/v1/task/4/self-assign")
@@ -390,7 +384,6 @@ class TaskControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Self-assign to self (already assignee) is idempotent")
         void selfAssign_alreadyAssignedToSelf_returns200() throws Exception {
-            // PROJ-3 (id=3) is assigned to bwilson — bwilson self-assigns again
             String devToken = obtainToken(DEV_USER);
 
             mockMvc.perform(patch("/api/v1/task/3/self-assign")
@@ -407,7 +400,6 @@ class TaskControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Admin deletes task and returns 204")
         void delete_asAdmin_returns204() throws Exception {
-            // Create a disposable task first
             TaskRequest createReq = new TaskRequest(
                     "DEL-1", "To be deleted", null, null,
                     null, null, null, null, null);
@@ -425,7 +417,6 @@ class TaskControllerIntegrationTest extends IntegrationTestBase {
                             .header("Authorization", bearer(adminToken)))
                     .andExpect(status().isNoContent());
 
-            // Verify it's gone
             mockMvc.perform(get("/api/v1/task/" + createdId)
                             .header("Authorization", bearer(adminToken)))
                     .andExpect(status().isNotFound());

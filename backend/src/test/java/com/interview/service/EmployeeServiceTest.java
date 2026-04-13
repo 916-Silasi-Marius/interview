@@ -50,7 +50,6 @@ class EmployeeServiceTest {
         assertThat(response.email()).isEqualTo(expected.getEmail());
         assertThat(response.fullName()).isEqualTo(expected.getFullName());
         assertThat(response.role()).isEqualTo(expected.getRole());
-        assertThat(response.isActive()).isEqualTo(expected.getIsActive());
         assertThat(response.createdAt()).isEqualTo(expected.getCreatedAt());
         assertThat(response.updatedAt()).isEqualTo(expected.getUpdatedAt());
     }
@@ -87,7 +86,7 @@ class EmployeeServiceTest {
 
     @Test
     void createEmployee_success_returnsCreatedResponse() {
-        EmployeeRequest request = new EmployeeRequest("newuser", "new@example.com", "password123", "New User", EmployeeRole.DEVELOPER, true);
+        EmployeeRequest request = new EmployeeRequest("newuser", "new@example.com", "password123", "New User", EmployeeRole.DEVELOPER);
         when(employeeRepository.existsByUsername("newuser")).thenReturn(false);
         when(employeeRepository.existsByEmail("new@example.com")).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("encoded");
@@ -111,7 +110,7 @@ class EmployeeServiceTest {
 
     @Test
     void createEmployee_duplicateUsername_throwsDuplicateResourceException() {
-        EmployeeRequest request = new EmployeeRequest("jdoe", "new@example.com", "password123", "New User", null, null);
+        EmployeeRequest request = new EmployeeRequest("jdoe", "new@example.com", "password123", "New User", null);
         when(employeeRepository.existsByUsername("jdoe")).thenReturn(true);
 
         assertThatThrownBy(() -> employeeService.createEmployee(request))
@@ -121,7 +120,7 @@ class EmployeeServiceTest {
 
     @Test
     void createEmployee_duplicateEmail_throwsDuplicateResourceException() {
-        EmployeeRequest request = new EmployeeRequest("newuser", "existing@example.com", "password123", "New User", null, null);
+        EmployeeRequest request = new EmployeeRequest("newuser", "existing@example.com", "password123", "New User", null);
         when(employeeRepository.existsByUsername("newuser")).thenReturn(false);
         when(employeeRepository.existsByEmail("existing@example.com")).thenReturn(true);
 
@@ -133,7 +132,7 @@ class EmployeeServiceTest {
     @Test
     void updateEmployee_success_returnsUpdatedResponse() {
         Employee employee = buildEmployee();
-        EmployeeRequest request = new EmployeeRequest("updated", "updated@example.com", "newpass", "Updated Name", EmployeeRole.ADMIN, true);
+        EmployeeRequest request = new EmployeeRequest("updated", "updated@example.com", "newpass", "Updated Name", EmployeeRole.ADMIN);
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
         when(employeeRepository.existsByUsername("updated")).thenReturn(false);
         when(employeeRepository.existsByEmail("updated@example.com")).thenReturn(false);
@@ -146,7 +145,7 @@ class EmployeeServiceTest {
 
     @Test
     void updateEmployee_notFound_throwsResourceNotFoundException() {
-        EmployeeRequest request = new EmployeeRequest("u", "e@e.com", "pass1234", "N", null, null);
+        EmployeeRequest request = new EmployeeRequest("u", "e@e.com", "pass1234", "N", null);
         when(employeeRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> employeeService.updateEmployee(99L, request))
@@ -157,7 +156,7 @@ class EmployeeServiceTest {
     @Test
     void updateEmployee_sameUsername_noConflict() {
         Employee employee = buildEmployee();
-        EmployeeRequest request = new EmployeeRequest("jdoe", "new@example.com", "password123", "John Doe", null, null);
+        EmployeeRequest request = new EmployeeRequest("jdoe", "new@example.com", "password123", "John Doe", null);
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
         when(employeeRepository.existsByEmail("new@example.com")).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("encoded");
@@ -171,7 +170,7 @@ class EmployeeServiceTest {
     @Test
     void updateEmployee_duplicateUsername_throwsDuplicateResourceException() {
         Employee employee = buildEmployee();
-        EmployeeRequest request = new EmployeeRequest("taken", "jdoe@example.com", "pass1234", "John", null, null);
+        EmployeeRequest request = new EmployeeRequest("taken", "jdoe@example.com", "pass1234", "John", null);
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
         when(employeeRepository.existsByUsername("taken")).thenReturn(true);
 
@@ -183,7 +182,7 @@ class EmployeeServiceTest {
     @Test
     void patchEmployee_success_appliesOnlyProvidedFields() {
         Employee employee = buildEmployee();
-        EmployeeUpdateRequest request = new EmployeeUpdateRequest(null, null, null, "New Full Name", null, null);
+        EmployeeUpdateRequest request = new EmployeeUpdateRequest(null, null, null, "New Full Name", null);
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
 
         EmployeeResponse response = employeeService.patchEmployee(1L, request);
@@ -194,7 +193,7 @@ class EmployeeServiceTest {
     @Test
     void patchEmployee_withPassword_encodesNewPassword() {
         Employee employee = buildEmployee();
-        EmployeeUpdateRequest request = new EmployeeUpdateRequest(null, null, "newpass123", null, null, null);
+        EmployeeUpdateRequest request = new EmployeeUpdateRequest(null, null, "newpass123", null, null);
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
         when(passwordEncoder.encode("newpass123")).thenReturn("new_encoded");
 
@@ -207,7 +206,7 @@ class EmployeeServiceTest {
     @Test
     void patchEmployee_withoutPassword_keepsExistingPassword() {
         Employee employee = buildEmployee();
-        EmployeeUpdateRequest request = new EmployeeUpdateRequest(null, null, null, "Name", null, null);
+        EmployeeUpdateRequest request = new EmployeeUpdateRequest(null, null, null, "Name", null);
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
 
         EmployeeResponse response = employeeService.patchEmployee(1L, request);
@@ -220,7 +219,7 @@ class EmployeeServiceTest {
     @Test
     void patchEmployee_duplicateUsername_throwsDuplicateResourceException() {
         Employee employee = buildEmployee();
-        EmployeeUpdateRequest request = new EmployeeUpdateRequest("taken", null, null, null, null, null);
+        EmployeeUpdateRequest request = new EmployeeUpdateRequest("taken", null, null, null, null);
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
         when(employeeRepository.existsByUsername("taken")).thenReturn(true);
 
@@ -250,7 +249,7 @@ class EmployeeServiceTest {
     @Test
     void createEmployee_concurrentDuplicate_throwsDuplicateResourceException() {
         EmployeeRequest request = new EmployeeRequest("newuser", "new@example.com", "password123",
-                "New User", EmployeeRole.DEVELOPER, true);
+                "New User", EmployeeRole.DEVELOPER);
 
         when(employeeRepository.existsByUsername("newuser")).thenReturn(false);
         when(employeeRepository.existsByEmail("new@example.com")).thenReturn(false);
@@ -267,7 +266,7 @@ class EmployeeServiceTest {
     void updateEmployee_concurrentModification_throwsConcurrentModificationException() {
         Employee employee = buildEmployee();
         EmployeeRequest request = new EmployeeRequest("jdoe", "jdoe@example.com", "newpass123",
-                "Updated", EmployeeRole.ADMIN, true);
+                "Updated", EmployeeRole.ADMIN);
 
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
         when(passwordEncoder.encode("newpass123")).thenReturn("encoded");
@@ -283,7 +282,7 @@ class EmployeeServiceTest {
     @Test
     void patchEmployee_concurrentModification_throwsConcurrentModificationException() {
         Employee employee = buildEmployee();
-        EmployeeUpdateRequest request = new EmployeeUpdateRequest(null, null, null, "Patched", null, null);
+        EmployeeUpdateRequest request = new EmployeeUpdateRequest(null, null, null, "Patched", null);
 
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
         doThrow(new ObjectOptimisticLockingFailureException(Employee.class, 1L))

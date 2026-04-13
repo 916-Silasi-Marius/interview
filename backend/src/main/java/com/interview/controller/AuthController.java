@@ -5,6 +5,7 @@ import com.interview.model.dto.AuthResponse;
 import com.interview.security.TokenService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +56,7 @@ public class AuthController {
      * @return an {@link AuthResponse} containing the signed JWT token
      */
     @PostMapping("/login")
+    @SecurityRequirements
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody AuthRequest request) {
         log.debug("Login attempt for user: {}", request.username());
 

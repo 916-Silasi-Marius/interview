@@ -171,7 +171,6 @@ class TagControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Duplicate name for different tag returns 409")
         void update_duplicateName_returns409() throws Exception {
-            // Try to rename tag 2 (feature) to "bug" (tag 1's name)
             TagRequest request = new TagRequest("bug", "Renamed to bug");
 
             mockMvc.perform(put("/api/v1/tag/2")
@@ -196,7 +195,7 @@ class TagControllerIntegrationTest extends IntegrationTestBase {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(request)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.name").value("bug"))                   // unchanged
+                    .andExpect(jsonPath("$.name").value("bug"))
                     .andExpect(jsonPath("$.description").value("Patched description only"));
         }
 
@@ -221,7 +220,6 @@ class TagControllerIntegrationTest extends IntegrationTestBase {
         @Test
         @DisplayName("Admin deletes tag and returns 204")
         void delete_asAdmin_returns204() throws Exception {
-            // Create a disposable tag first
             TagRequest createReq = new TagRequest("temp-tag", "Temporary");
             String response = mockMvc.perform(post("/api/v1/tag")
                             .header("Authorization", bearer(adminToken))
@@ -236,7 +234,6 @@ class TagControllerIntegrationTest extends IntegrationTestBase {
                             .header("Authorization", bearer(adminToken)))
                     .andExpect(status().isNoContent());
 
-            // Verify it's gone
             mockMvc.perform(get("/api/v1/tag/" + createdId)
                             .header("Authorization", bearer(adminToken)))
                     .andExpect(status().isNotFound());

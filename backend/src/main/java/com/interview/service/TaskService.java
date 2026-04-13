@@ -391,7 +391,7 @@ public class TaskService {
     private Page<TaskResponse> loadTaskPageByIds(Page<Long> idPage) {
         List<Long> ids = idPage.getContent();
         if (ids.isEmpty()) {
-            return idPage.map(id -> null);
+            return Page.empty(idPage.getPageable());
         }
 
         Map<Long, Task> taskMap = taskRepository.findAllWithRelationsByIdIn(ids).stream()

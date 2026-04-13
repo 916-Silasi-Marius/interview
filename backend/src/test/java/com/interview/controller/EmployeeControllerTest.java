@@ -85,7 +85,7 @@ class EmployeeControllerTest {
 
     @Test
     void createEmployee_asAdmin_validRequest_returns201() throws Exception {
-        EmployeeRequest request = new EmployeeRequest("newuser", "new@test.com", "password123", "New User", EmployeeRole.DEVELOPER, true);
+        EmployeeRequest request = new EmployeeRequest("newuser", "new@test.com", "password123", "New User", EmployeeRole.DEVELOPER);
         when(employeeService.createEmployee(any(EmployeeRequest.class))).thenReturn(buildEmployeeResponse());
 
         mockMvc.perform(post("/api/v1/employee")
@@ -112,7 +112,7 @@ class EmployeeControllerTest {
 
     @Test
     void updateEmployee_asAdmin_returns200() throws Exception {
-        EmployeeRequest request = new EmployeeRequest("updated", "up@test.com", "password123", "Updated", EmployeeRole.ADMIN, true);
+        EmployeeRequest request = new EmployeeRequest("updated", "up@test.com", "password123", "Updated", EmployeeRole.ADMIN);
         when(employeeService.updateEmployee(eq(1L), any(EmployeeRequest.class))).thenReturn(buildEmployeeResponse());
 
         mockMvc.perform(put("/api/v1/employee/1")
@@ -125,7 +125,7 @@ class EmployeeControllerTest {
 
     @Test
     void patchEmployee_asAdmin_returns200() throws Exception {
-        EmployeeUpdateRequest request = new EmployeeUpdateRequest(null, null, null, "Patched Name", null, null);
+        EmployeeUpdateRequest request = new EmployeeUpdateRequest(null, null, null, "Patched Name", null);
         when(employeeService.patchEmployee(eq(1L), any(EmployeeUpdateRequest.class))).thenReturn(buildEmployeeResponse());
 
         mockMvc.perform(patch("/api/v1/employee/1")

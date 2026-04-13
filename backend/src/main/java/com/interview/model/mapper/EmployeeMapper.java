@@ -30,7 +30,6 @@ public class EmployeeMapper {
                 employee.getEmail(),
                 employee.getFullName(),
                 employee.getRole(),
-                employee.getIsActive(),
                 employee.getCreatedAt(),
                 employee.getUpdatedAt()
         );
@@ -39,8 +38,8 @@ public class EmployeeMapper {
     /**
      * Converts an {@link EmployeeRequest} DTO to a new {@link Employee} entity.
      *
-     * <p>Applies default values for {@code role} (DEVELOPER) and
-     * {@code isActive} (true) when not provided in the request.
+     * <p>Applies default value for {@code role} (DEVELOPER)
+     * when not provided in the request.
      * The {@code encodedPassword} parameter must be a pre-hashed password
      * (BCrypt) — the mapper does not perform hashing.</p>
      *
@@ -55,7 +54,6 @@ public class EmployeeMapper {
                 .password(encodedPassword)
                 .fullName(request.fullName())
                 .role(request.role() != null ? request.role() : EmployeeRole.DEVELOPER)
-                .isActive(request.isActive() != null ? request.isActive() : true)
                 .build();
     }
 
@@ -73,7 +71,6 @@ public class EmployeeMapper {
         employee.setEmail(request.email());
         employee.setFullName(request.fullName());
         employee.setRole(request.role() != null ? request.role() : EmployeeRole.DEVELOPER);
-        employee.setIsActive(request.isActive() != null ? request.isActive() : true);
     }
 
     /**
@@ -98,9 +95,6 @@ public class EmployeeMapper {
         }
         if (request.role() != null) {
             employee.setRole(request.role());
-        }
-        if (request.isActive() != null) {
-            employee.setIsActive(request.isActive());
         }
     }
 }
