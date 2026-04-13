@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -48,7 +49,7 @@ public class TagController {
     @ApiResponse(responseCode = "401", description = "Authentication required",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping
-    public ResponseEntity<Page<TagResponse>> getAllTags(@PageableDefault(size = 20) Pageable pageable) {
+    public ResponseEntity<Page<TagResponse>> getAllTags(@ParameterObject @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(tagService.getAllTags(pageable));
     }
 

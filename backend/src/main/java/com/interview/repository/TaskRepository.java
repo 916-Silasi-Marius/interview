@@ -1,8 +1,6 @@
 package com.interview.repository;
 
 import com.interview.model.entities.Task;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -20,7 +18,7 @@ import java.util.Optional;
  *
  * <p>Paginated list queries use a <strong>two-query approach</strong> to avoid
  * in-memory pagination when fetching collection associations ({@code tags}).
- * The first query fetches only the matching task IDs with real SQL pagination,
+ * The first query fetches the matching tasks with real SQL pagination,
  * and the second query loads the full entities with relations for just those IDs.</p>
  */
 public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
@@ -43,19 +41,6 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     Optional<Task> findWithRelationsById(Long id);
 
     /**
-     * Fetches only the IDs of all tasks with SQL-level pagination.
-     *
-     * <p>This is the first step of the two-query approach:
-     * retrieve a page of IDs, then load full entities via
-     * {@link #findAllWithRelationsByIdIn(List)}.</p>
-     *
-     * @param pageable pagination and sorting parameters
-     * @return a page of task IDs
-     */
-    @Query("SELECT t.id FROM Task t")
-    Page<Long> findAllIds(Pageable pageable);
-
-    /**
      * Loads full task entities with reporter, assignee, and tags eagerly fetched
      * for a given list of IDs.
      *
@@ -69,4 +54,3 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     @Query("SELECT t FROM Task t WHERE t.id IN :ids")
     List<Task> findAllWithRelationsByIdIn(@Param("ids") List<Long> ids);
 }
-

@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -49,7 +50,7 @@ public class EmployeeController {
     @ApiResponse(responseCode = "403", description = "Insufficient permissions — requires ADMIN",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping
-    public ResponseEntity<Page<EmployeeResponse>> getAllEmployees(@PageableDefault(size = 20) Pageable pageable) {
+    public ResponseEntity<Page<EmployeeResponse>> getAllEmployees(@ParameterObject @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(employeeService.getAllEmployees(pageable));
     }
 

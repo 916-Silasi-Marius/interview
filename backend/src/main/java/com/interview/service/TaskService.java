@@ -55,9 +55,10 @@ public class TaskService {
     /**
      * Retrieves a paginated list of all tasks.
      *
-     * <p>Uses a two-query approach: first fetches task IDs with SQL-level pagination,
-     * then loads the full entities with relations for those IDs. This avoids
-     * Hibernate's in-memory pagination when fetching collection associations.</p>
+     * <p>Uses a two-query approach: first fetches tasks with SQL-level pagination
+     * (collections are LAZY so only scalar columns are loaded), then loads the full
+     * entities with relations for those IDs. This avoids Hibernate's in-memory
+     * pagination when fetching collection associations.</p>
      *
      * @param pageable pagination and sorting parameters
      * @return a page of {@link TaskResponse} DTOs
@@ -66,8 +67,8 @@ public class TaskService {
     @Timed(value = "task.service", extraTags = {"method", "getAllTasks"})
     public Page<TaskResponse> getAllTasks(Pageable pageable) {
         log.debug("Fetching tasks page: {}", pageable);
-        Page<Long> idPage = taskRepository.findAllIds(pageable);
-        return loadTaskPageByIds(idPage);
+        Page<Task> taskPage = taskRepository.findAll(pageable);
+        return loadTaskPage(pageable, taskPage);
     }
 
     /**
@@ -104,25 +105,9 @@ public class TaskService {
     @Timed(value = "task.service", extraTags = {"method", "searchTasks"})
     public Page<TaskResponse> searchTasks(String query, Pageable pageable) {
         log.debug("Searching tasks with query: '{}', page: {}", query, pageable);
-        // Step 1: fetch matching tasks with SQL-level pagination (tags collection not loaded)
         Page<Task> taskPage = taskRepository.findAll(
                 TaskSpecification.titleOrDescriptionContainsAnyWord(query), pageable);
-        List<Long> ids = taskPage.getContent().stream().map(Task::getId).toList();
-
-        if (ids.isEmpty()) {
-            return Page.empty(pageable);
-        }
-
-        // Step 2: load full entities with relations for just those IDs
-        Map<Long, Task> taskMap = taskRepository.findAllWithRelationsByIdIn(ids).stream()
-                .collect(Collectors.toMap(Task::getId, Function.identity()));
-
-        List<TaskResponse> ordered = ids.stream()
-                .map(taskMap::get)
-                .map(TaskMapper::toResponse)
-                .toList();
-
-        return new PageImpl<>(ordered, pageable, taskPage.getTotalElements());
+        return loadTaskPage(pageable, taskPage);
     }
 
     /**
@@ -379,19 +364,22 @@ public class TaskService {
     }
 
     /**
-     * Loads full task entities for a page of IDs and maps them to response DTOs.
+     * Loads full task entities with relations for the given page and maps them to response DTOs.
      *
-     * <p>This is the second step of the two-query approach. The tasks are fetched
-     * with all relations eagerly loaded, then reordered to match the original
-     * page's sort order.</p>
+     * <p>This is the second step of the two-query approach. The first query fetches
+     * tasks with SQL-level pagination (collections are LAZY), and this method
+     * re-fetches them with all relations eagerly loaded via an entity graph,
+     * preserving the original page order.</p>
      *
-     * @param idPage the page of task IDs (with pagination metadata)
+     * @param pageable the original pagination parameters
+     * @param taskPage the page of tasks from the first query (without collections loaded)
      * @return a page of {@link TaskResponse} DTOs preserving the original order
      */
-    private Page<TaskResponse> loadTaskPageByIds(Page<Long> idPage) {
-        List<Long> ids = idPage.getContent();
+    private Page<TaskResponse> loadTaskPage(Pageable pageable, Page<Task> taskPage) {
+        List<Long> ids = taskPage.getContent().stream().map(Task::getId).toList();
+
         if (ids.isEmpty()) {
-            return Page.empty(idPage.getPageable());
+            return Page.empty(pageable);
         }
 
         Map<Long, Task> taskMap = taskRepository.findAllWithRelationsByIdIn(ids).stream()
@@ -403,6 +391,6 @@ public class TaskService {
                 .map(TaskMapper::toResponse)
                 .toList();
 
-        return new PageImpl<>(ordered, idPage.getPageable(), idPage.getTotalElements());
+        return new PageImpl<>(ordered, pageable, taskPage.getTotalElements());
     }
 }

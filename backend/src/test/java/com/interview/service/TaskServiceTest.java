@@ -79,8 +79,7 @@ class TaskServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         Employee reporter = buildEmployee();
         Task task = buildTask(reporter, null);
-        Page<Long> idPage = new PageImpl<>(List.of(1L), pageable, 1);
-        when(taskRepository.findAllIds(pageable)).thenReturn(idPage);
+        when(taskRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(task), pageable, 1));
         when(taskRepository.findAllWithRelationsByIdIn(List.of(1L))).thenReturn(List.of(task));
 
         Page<TaskResponse> result = taskService.getAllTasks(pageable);

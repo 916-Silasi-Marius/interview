@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -49,7 +50,7 @@ public class TaskController {
     @ApiResponse(responseCode = "401", description = "Authentication required",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping
-    public ResponseEntity<Page<TaskResponse>> getAllTasks(@PageableDefault(size = 20) Pageable pageable) {
+    public ResponseEntity<Page<TaskResponse>> getAllTasks(@ParameterObject @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(taskService.getAllTasks(pageable));
     }
 
@@ -68,7 +69,7 @@ public class TaskController {
             @Size(min = 2, max = 100, message = "Search query must be between 2 and 100 characters")
             @Parameter(description = "Search term (2–100 characters)", example = "login")
             String query,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @ParameterObject @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(taskService.searchTasks(query, pageable));
     }
 
